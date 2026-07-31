@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Aoi シフト</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+:root {
+  --bg: #f0f2f7; --bg2: #ffffff; --bg3: #e6e9f4; --bg4: #dde0ec;
+  --accent: #5046e5; --accent2: #3a31c8;
+  --green: #1a9e6e; --red: #cc2e44; --yellow: #b06800; --blue: #2563c8; --orange: #c85c10;
+  --text: #18192e; --text2: #60628a; --border: #d4d7e8; --nav-h: 60px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif; font-size: 16px; overflow-x: hidden; }
+button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
+input, select, textarea { -webkit-appearance: none; outline: none; }
+input[type=checkbox] { -webkit-appearance: checkbox; appearance: auto; width: 20px; height: 20px; accent-color: var(--accent); }
+.chk-row { display: flex; align-items: center; gap: 8px; font-size: 15px; padding: 8px 0; }
+
+#nav { position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h); background: var(--bg2); border-top: 1px solid var(--border); display: flex; z-index: 100; }
+.nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--text2); font-size: 13px; }
+.nav-btn.active { color: var(--accent2); font-weight: 700; }
+
+.screen { display: none; min-height: 100dvh; padding-bottom: calc(var(--nav-h) + 20px); }
+.screen.active { display: block; }
+.hdr { background: var(--bg2); padding: 14px 16px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+.hdr-title { font-size: 20px; font-weight: 700; }
+.hdr-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.sec { background: var(--bg2); border-radius: 14px; border: 1.5px solid var(--border); padding: 14px; margin: 12px 14px; }
+.sec-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+.note { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--bg3); border: 1.5px solid var(--border); border-radius: 18px; padding: 8px 14px; font-size: 15px; }
+.chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+
+.month-nav { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 10px; }
+.month-nav button { font-size: 22px; color: var(--accent2); padding: 4px 14px; }
+.month-label { font-size: 18px; font-weight: 700; }
+
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.cal-wd { text-align: center; font-size: 12px; color: var(--text2); padding: 4px 0; font-weight: 700; }
+.cal-wd.sat { color: var(--blue); } .cal-wd.sun { color: var(--red); }
+.cal-day { aspect-ratio: 1/1.4; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; font-weight: 600; position: relative; padding: 2px; }
+.cal-day.blank { background: none; border: none; }
+.cal-day.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cal-day.sub { background: #f4e8c8; border-color: var(--yellow); color: var(--yellow); font-weight: 800; }
+.cal-day .cd-name { font-size: 12px; font-weight: 700; line-height: 1.2; text-align: center; word-break: break-all; overflow: hidden; max-height: 2.6em; }
+.cal-day.assigned { background: #e3f4ec; border-color: var(--green); }
+.cal-day.assigned .cd-name { color: var(--green); }
+.cal-day.empty-slot { border-color: var(--red); border-style: dashed; }
+.cal-day.empty-slot .cd-name { color: var(--red); }
+.cal-day.closed { background: var(--bg4); color: var(--text2); }
+.cd-cnt { position: absolute; top: 2px; right: 4px; font-size: 9px; color: var(--text2); font-weight: 700; }
+
+.btn { display: block; width: 100%; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 700; text-align: center; margin-top: 10px; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-sub { background: var(--bg3); color: var(--accent2); border: 1.5px solid var(--border); }
+.btn-danger { background: rgba(224,92,107,.12); color: var(--red); }
+.btn:disabled { opacity: .45; }
+
+.field { margin-top: 12px; }
+.field label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 5px; font-weight: 700; }
+.field input, .field textarea { width: 100%; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px; padding: 11px 12px; font-size: 16px; color: var(--text); }
+
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.tbl th { text-align: left; color: var(--text2); font-weight: 700; padding: 6px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.tbl td { padding: 7px 4px; border-bottom: 1px solid var(--bg3); vertical-align: middle; }
+table.tbl input.ovr { width: 64px; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 8px; padding: 5px 6px; font-size: 13px; text-align: right; }
+.rank-badge { display: inline-block; min-width: 24px; text-align: center; border-radius: 6px; font-weight: 800; font-size: 12px; padding: 2px 5px; }
+.rk-SSS { background: linear-gradient(135deg, #b06800, #e0a020); color: #fff; }
+.rk-SS { background: var(--accent); color: #fff; }
+.rk-S { background: #f4e8c8; color: var(--yellow); } .rk-A { background: #e3f4ec; color: var(--green); }
+.rk-B { background: #e2ebfa; color: var(--blue); } .rk-C { background: var(--bg3); color: var(--text2); }
+.rk-D { background: rgba(224,92,107,.18); color: var(--red); }
+.rk-N { background: rgba(224,92,107,.12); color: var(--red); }
+.rk-sub { font-size: 10px; color: var(--text2); display: block; margin-top: 2px; }
+.cell-max { font-size: 10px; color: var(--text2); display: block; }
+
+.status-ok { color: var(--green); font-weight: 700; }
+.status-ng { color: var(--red); font-weight: 700; }
+
+.modal-bg { position: fixed; inset: 0; background: rgba(10,12,30,.45); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+.modal-bg.open { display: flex; }
+.modal { background: var(--bg2); border-radius: 18px 18px 0 0; width: 100%; max-width: 560px; max-height: 82dvh; overflow-y: auto; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
+.modal h3 { font-size: 17px; margin-bottom: 10px; }
+.pick-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 4px; border-bottom: 1px solid var(--bg3); font-size: 15px; }
+.pick-row .meta { font-size: 12px; color: var(--text2); }
+.pick-row.cur { background: #e3f4ec; border-radius: 8px; }
+
+#toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 18px); transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 20px; border-radius: 22px; font-size: 14px; z-index: 300; display: none; white-space: nowrap; }
+.pw-box input { width: 100%; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px; font-size: 16px; margin-top: 8px; }
+#pw-err { color: var(--red); font-size: 13px; margin-top: 6px; display: none; }
+.summary-line { font-size: 13px; padding: 4px 0; display: flex; justify-content: space-between; }
+.sub-card { display: block; width: 100%; text-align: left; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.sub-card-header { display: flex; align-items: center; font-size: 15px; font-weight: 800; margin-bottom: 4px; gap: 6px; }
+.sub-card-body { font-size: 12px; color: var(--text2); line-height: 1.6; }
+.sub-card.missing { opacity: 0.65; border-style: dashed; }
+</style>
+</head>
+<body>
+
+<!-- ================= STAFF ================= -->
+<div class="screen active" id="scr-staff">
+  <div class="hdr">
+    <div class="hdr-title">🍸 Bar Aoi シフト希望</div>
+    <div class="hdr-sub">入れる日をタップして送信してください（締切：毎月20日）</div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">1. 自分の名前</div>
+    <div class="chips" id="name-chips"></div>
+    <div class="field" style="margin-top:12px;">
+      <label>名前がない場合（ヘルプ・新人さんはここから追加）</label>
+      <div style="display:flex;gap:8px;">
+        <input id="new-name" placeholder="名前を入力">
+        <button class="btn btn-sub" style="width:auto;margin-top:0;padding:11px 18px;white-space:nowrap;" onclick="addExtraName()">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">2. 入れる日をタップ</div>
+    <div class="note" style="margin-bottom:8px;">タップするたびに <b style="color:var(--accent2);">○入れる</b> → <b style="color:var(--yellow);">△空いてたら入る</b> → 取消 と切り替わります</div>
+    <div class="month-nav">
+      <button onclick="moveMonth(-1)">‹</button>
+      <div class="month-label" id="staff-month-label"></div>
+      <button onclick="moveMonth(1)">›</button>
+    </div>
+    <div class="cal" id="staff-cal"></div>
+    <button class="btn btn-sub" id="btn-timemode" onclick="toggleTimeMode()">⏰ 時間の条件を付ける（終電まで／3時まで）</button>
+    <div class="note" id="timemode-note" style="display:none;margin-top:6px;">時間条件モード中：選んだ日をタップすると 通常 → ⏰終電まで → 🕒3時まで（延長なし） → 通常 と切り替わります。終わったらもう一度ボタンを押して戻してください。</div>
+    <div class="note" style="margin-top:8px;" id="staff-sel-note"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">3. 希望（任意）</div>
+    <div class="field">
+      <label>月に入りたい回数（例：4）</label>
+      <input type="number" id="in-desired" inputmode="numeric" placeholder="未記入なら「何回でも」">
+    </div>
+    <label class="chk-row"><input type="checkbox" id="in-noconsec"> 連続の日はイヤ（連勤なし）</label>
+    <label class="chk-row"><input type="checkbox" id="in-weekly"> 週に1回まで</label>
+    <label class="chk-row"><input type="checkbox" id="in-anyday" onchange="toggleAnyWd()"> 誰もいない日があれば入れる</label>
+    <div id="anyday-wd" style="display:none;padding:0 0 8px 28px;">
+      <div class="note" style="margin-bottom:6px;">曜日を選ぶとその曜日だけ。選ばなければ全部の日OK。</div>
+      <div class="chips" id="anywd-chips"></div>
+    </div>
+    <label class="chk-row"><input type="checkbox" id="in-lasttrain"> 終電までなら入れる（早上がり）</label>
+    <div class="field">
+      <label>ひとことメモ（任意）</label>
+      <textarea id="in-comment" rows="2" placeholder="例：金曜は22時からなら入れます"></textarea>
+    </div>
+    <button class="btn btn-primary" id="btn-submit" onclick="submitShift()">この内容で送信 ✓</button>
+    <div class="note" style="margin-top:8px;">※締切前なら何度でも修正して再送信できます。</div>
+  </div>
+</div>
+
+<!-- ================= OWNER ================= -->
+<div class="screen" id="scr-owner">
+  <div class="hdr">
+    <div class="hdr-title">🔧 シフト管理（オーナー）</div>
+    <div class="hdr-sub" id="owner-month-sub"></div>
+  </div>
+
+  <div class="sec">
+    <div class="month-nav">
+      <button onclick="moveMonth(-1)">‹</button>
+      <div class="month-label" id="owner-month-label"></div>
+      <button onclick="moveMonth(1)">›</button>
+    </div>
+    <button class="btn btn-sub" onclick="copyRecruit()">📋 募集メッセージをコピー（LINE用）</button>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">提出状況 <span id="sub-count" style="color:var(--text2);font-weight:400;font-size:13px;"></span></div>
+    <div id="sub-status"></div>
+    <button class="btn btn-sub" onclick="copyRemind()">📋 未提出の子へのリマインド文をコピー</button>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">スタッフランク（売上実績）</div>
+    <div class="note" style="margin-bottom:8px;">評価期間：<b id="eval-period"></b>（6月〜11月／12月〜5月の半年ごとにリセット。期間内データがない子は全期間で参考表示）。基準：月〜木・日＝¥30,000／金土・祝前日＝¥50,000／GW・シルバーウィーク＝¥40,000（祝日は自動判定）。実績＝入った日の売上が基準の何%か。判定：SSS=200%〜／SS=150%〜／S=120%〜／A=100%〜／B=75%〜／C=50%〜／D=それ未満。※最低保証（¥10,000）または店が赤字になった日が半分以上の子は、良くてもC止まり。「手動」に想定平均売上（円）を入れるとそちらを優先。データなしの子は必ず手動で設定してください。</div>
+    <div id="rank-top" style="margin-bottom:8px;font-weight:700;"></div>
+    <table class="tbl">
+      <thead><tr><th>名前</th><th>日〜木</th><th>金土</th><th>手動</th><th>判定</th></tr></thead>
+      <tbody id="rank-body"></tbody>
+    </table>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">シフト表</div>
+    <div class="note" style="margin-bottom:8px;">自動振り分け：全員最低1回は入れつつ、売上が強い日（<span id="strong-days"></span>）に上位の子を優先配置。○で埋まらない日は△（空いてたら入る）の子で埋めます。全員、連勤は最大2日まで。下位の子の保証枠は金土を避けて配置します。日付をタップで手動変更・定休日設定。右上の「○数字」＝担当以外にその日に入りたい子の人数（タップすると一覧から1発で入れ替え）。</div>
+    <div class="cal" id="owner-cal"></div>
+    <div id="cal-legend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+    <button class="btn btn-primary" onclick="autoAssign()">⚡ 自動振り分け（全部組み直し）</button>
+    <button class="btn btn-sub" onclick="autoAssign(true)">⚡ 空き日だけ埋める（遅れて提出した子用・決定分は動かさない）</button>
+    <div id="assign-summary" style="margin-top:10px;"></div>
+    <button class="btn btn-sub" onclick="copyOpenDays()">📋 空き日リストをコピー（LINE用）</button>
+    <button class="btn btn-green" onclick="copyShiftTable()">📋 シフト表をコピー（LINE用）</button>
+    <button class="btn btn-danger" onclick="clearAssign()">シフト表をリセット</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<div id="nav">
+  <button class="nav-btn active" id="nav-staff" onclick="showScreen('staff')">✍️<span>シフト提出</span></button>
+  <button class="nav-btn" id="nav-owner" onclick="tryOwner()">🔧<span>管理</span></button>
+</div>
+
+<!-- PASSWORD MODAL -->
+<div class="modal-bg" id="pw-modal">
+  <div class="modal pw-box">
+    <h3>🔒 オーナー認証</h3>
+    <input type="password" id="pw-input" placeholder="パスワード" onkeydown="if(event.key==='Enter')pwSubmit()">
+    <div id="pw-err">パスワードが違います</div>
+    <button class="btn btn-primary" onclick="pwSubmit()">確認</button>
+    <button class="btn btn-sub" onclick="closeModal('pw-modal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- SUBMISSION DETAIL MODAL -->
+<div class="modal-bg" id="sub-modal">
+  <div class="modal">
+    <h3 id="sub-modal-title"></h3>
+    <div id="sub-modal-body"></div>
+    <button class="btn btn-sub" onclick="closeModal('sub-modal')">閉じる</button>
+  </div>
+</div>
+
+<!-- DAY ASSIGN MODAL -->
+<div class="modal-bg" id="day-modal">
+  <div class="modal">
+    <h3 id="day-modal-title"></h3>
+    <div id="day-modal-body"></div>
+    <button class="btn btn-sub" onclick="setDay(null)">空きにする</button>
+    <button class="btn btn-danger" id="btn-closed" onclick="setDay('休')">定休日にする</button>
+    <button class="btn btn-sub" onclick="closeModal('day-modal')">閉じる</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIG（POSと同じFirebase）
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDYB_wPHG5RxfzzGRhr7K4ikQ_NpJvdxBg",
+  authDomain: "aoiseisan.firebaseapp.com",
+  databaseURL: "https://aoiseisan-default-rtdb.firebaseio.com",
+  projectId: "aoiseisan",
+  storageBucket: "aoiseisan.firebasestorage.app",
+  messagingSenderId: "105675936165",
+  appId: "1:105675936165:web:d43883263ffb67c42a184c",
+};
+const OWNER_PW = 'fav0rite';
+const SLOTS_PER_DAY = 1;           // 1日あたりの人数
+const DEADLINE_DAY = 20;           // 締切日
+const WD = ['日','月','火','水','木','金','土'];
+const BASE_AVG = (5 * 30000 + 2 * 50000) / 7; // 手動スコア（円）→基準比 換算用
+
+// ---- 日本の祝日（自動計算：ハッピーマンデー・春分秋分・振替・国民の休日対応）----
+const _holCache = {};
+function _nthMon(y, m, n) {
+  const first = new Date(y, m - 1, 1).getDay();
+  return 1 + ((8 - first) % 7) + 7 * (n - 1);
+}
+function _shunbun(y) { return Math.floor(20.8431 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4)); }
+function _shubun(y)  { return Math.floor(23.2488 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4)); }
+function holidaySet(y) {
+  if (_holCache[y]) return _holCache[y];
+  const set = new Set();
+  const add = (m, d) => set.add(m + '-' + d);
+  [[1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],[8,11],[11,3],[11,23]].forEach(x => add(x[0], x[1]));
+  add(1, _nthMon(y,1,2)); add(7, _nthMon(y,7,3)); add(9, _nthMon(y,9,3)); add(10, _nthMon(y,10,2));
+  add(3, _shunbun(y)); add(9, _shubun(y));
+  // 国民の休日（祝日に挟まれた平日）
+  for (let t = new Date(y,0,2); t.getFullYear() === y; t.setDate(t.getDate()+1)) {
+    const m = t.getMonth()+1, d = t.getDate();
+    const prev = new Date(y, m-1, d-1), next = new Date(y, m-1, d+1);
+    if (!set.has(m+'-'+d) && set.has((prev.getMonth()+1)+'-'+prev.getDate()) && set.has((next.getMonth()+1)+'-'+next.getDate())) add(m, d);
+  }
+  // 振替休日（日曜の祝日→次の平日）
+  for (let t = new Date(y,0,1); t.getFullYear() === y; t.setDate(t.getDate()+1)) {
+    if (t.getDay() === 0 && set.has((t.getMonth()+1)+'-'+t.getDate())) {
+      const f = new Date(t);
+      do { f.setDate(f.getDate()+1); } while (set.has((f.getMonth()+1)+'-'+f.getDate()));
+      add(f.getMonth()+1, f.getDate());
+    }
+  }
+  _holCache[y] = set;
+  return set;
+}
+function isHoliday(dt) { return holidaySet(dt.getFullYear()).has((dt.getMonth()+1) + '-' + dt.getDate()); }
+function baselineFor(dt) {
+  const y = dt.getFullYear(), m = dt.getMonth()+1, d = dt.getDate();
+  if ((m === 4 && d >= 29) || (m === 5 && d <= 5)) return 40000;  // GW
+  const kei = _nthMon(y, 9, 3), shu = _shubun(y);
+  if (m === 9 && shu - kei === 2 && d >= kei && d <= shu) return 40000;  // シルバーウィーク成立年
+  const w = dt.getDay();
+  if (w === 5 || w === 6) return 50000;  // 金土
+  if (isHoliday(new Date(y, m-1, d+1))) return 50000;  // 祝前日
+  return 30000;
+}
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const DB = firebase.database();
+
+// ============================================================
+// STATE
+// ============================================================
+let staffList = [];        // bar_data/staff
+let settlements = [];      // bar_data/settlements
+let ranks = {};            // shift_data/ranks : {name:{ovr:number}}
+let extraStaff = [];       // shift_data/extraStaff : {name:true} ヘルプ・追加メンバー
+let monthData = { subs: {}, assign: {} };  // shift_data/months/<key>
+let target = defaultTarget();
+let myName = null;
+let mySel = {};   // day -> 1(○入れる) / 2(△空いてたら)
+let myAnyWd = new Set();  // ◎いつでも の曜日しばり（空＝全曜日）
+let myTimes = {};         // day -> 'train'(終電) | 'close3'(3時まで・延長なし)
+let timeMode = false;
+const TIME_LABEL = { train: '終電まで', close3: '3時まで' };
+function staffColor(name) {
+  const list = allStaff();
+  const i = Math.max(0, list.indexOf(name));
+  const h = Math.round(i * 137.508) % 360; // 黄金角：名簿が隣同士でも色が大きく離れる
+  const l = 87 - (i % 3) * 3; // 明るさも少し散らす
+  return { bg: `hsl(${h},75%,${l}%)`, border: `hsl(${h},60%,52%)`, text: `hsl(${h},80%,25%)` };
+}
+function timeOf(sub, d) {
+  if (!sub) return null;
+  const dt = sub.dayTimes || {};
+  return dt[d] || (sub.lastTrain ? 'train' : null);
+}
+let editingDay = null;
+let monthListener = null;
+
+function defaultTarget() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth() + 1, 1); // 来月
+}
+function mKey() { return target.getFullYear() + '-' + String(target.getMonth()+1).padStart(2,'0'); }
+function mLabel() { return target.getFullYear() + '年' + (target.getMonth()+1) + '月'; }
+function daysInMonth() { return new Date(target.getFullYear(), target.getMonth()+1, 0).getDate(); }
+function wdOf(day) { return new Date(target.getFullYear(), target.getMonth(), day).getDay(); }
+
+// ============================================================
+// INIT / FIREBASE
+// ============================================================
+const FALLBACK_STAFF = ['ないと','ながよ','ひたち','かも','ろく','ちな','ぽこ','がく','あやね','あず','とも','ひかる','けんと','なつみ','かにちゃん'];
+let staffLoaded = false;
+function init() {
+  DB.ref('bar_data/staff').on('value', s => {
+    const v = s.val();
+    const arr = Array.isArray(v) ? v : (v ? Object.values(v) : []);
+    staffList = arr.map(x => (x && typeof x === 'object') ? x.name : x).filter(Boolean);
+    if (staffList.length) staffLoaded = true;
+    renderAll();
+  }, () => { useFallbackStaff(); });
+  // 5秒待ってもFirebaseから届かなければ仮名簿で動かす
+  setTimeout(() => { if (!staffLoaded && !staffList.length) useFallbackStaff(); }, 5000);
+  DB.ref('bar_data/settlements').once('value').then(s => {
+    const v = s.val();
+    settlements = Array.isArray(v) ? v.filter(Boolean) : (v ? Object.values(v) : []);
+    renderAll();
+  });
+  DB.ref('shift_data/ranks').on('value', s => { ranks = s.val() || {}; renderOwner(); });
+  DB.ref('shift_data/extraStaff').on('value', s => { extraStaff = Object.keys(s.val() || {}); renderAll(); });
+  attachMonth();
+}
+function attachMonth() {
+  if (monthListener) monthListener.off();
+  monthListener = DB.ref('shift_data/months/' + mKey());
+  monthListener.on('value', s => {
+    const v = s.val() || {};
+    monthData = { subs: v.subs || {}, assign: v.assign || {} };
+    renderAll();
+  });
+}
+function useFallbackStaff() {
+  if (staffList.length) return;
+  staffList = [...FALLBACK_STAFF];
+  toast('⚠️ 通信できないため仮の名簿を表示中');
+  renderAll();
+}
+function moveMonth(dir) {
+  target = new Date(target.getFullYear(), target.getMonth() + dir, 1);
+  mySel = {}; loadMySub();
+  attachMonth();
+  renderAll();
+}
+
+// ============================================================
+// COMMON UI
+// ============================================================
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.style.display = 'none', 2200);
+}
+function showScreen(name) {
+  document.getElementById('scr-staff').classList.toggle('active', name === 'staff');
+  document.getElementById('scr-owner').classList.toggle('active', name === 'owner');
+  document.getElementById('nav-staff').classList.toggle('active', name === 'staff');
+  document.getElementById('nav-owner').classList.toggle('active', name === 'owner');
+  renderAll();
+}
+function tryOwner() {
+  if (sessionStorage.getItem('shift_owner_ok') === '1') { showScreen('owner'); return; }
+  document.getElementById('pw-err').style.display = 'none';
+  document.getElementById('pw-input').value = '';
+  document.getElementById('pw-modal').classList.add('open');
+}
+function pwSubmit() {
+  if (document.getElementById('pw-input').value === OWNER_PW) {
+    sessionStorage.setItem('shift_owner_ok', '1');
+    closeModal('pw-modal'); showScreen('owner');
+  } else document.getElementById('pw-err').style.display = 'block';
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function fbErr(e) {
+  const m = (e && e.message) || '';
+  return /permission/i.test(m) ? 'Firebaseの権限設定が必要です（shift_dataへの書き込み許可）' : m || '通信エラー';
+}
+function copyText(text, okMsg) {
+  const done = () => toast(okMsg || 'コピーしました。LINEに貼り付けてください');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta);
+  ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+}
+
+// ============================================================
+// STAFF VIEW
+// ============================================================
+function renderStaff() {
+  document.getElementById('staff-month-label').textContent = mLabel();
+  document.getElementById('name-chips').innerHTML = allStaff().length
+    ? allStaff().map(s => `<button class="chip ${s===myName?'selected':''}" onclick="pickName('${esc(s)}')">${s}</button>`).join('')
+    : '<div class="note">スタッフ名簿を読み込み中…（POSと同じFirebaseから取得します）</div>';
+  renderStaffCal();
+}
+function esc(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function pickName(name) {
+  myName = name;
+  loadMySub();
+  renderStaff();
+}
+function loadMySub() {
+  mySel = {};
+  if (!myName) return;
+  const sub = monthData.subs[myName];
+  if (sub) {
+    (sub.days || []).forEach(d => mySel[d] = 1);
+    (sub.subDays || []).forEach(d => mySel[d] = 2);
+    document.getElementById('in-desired').value = sub.desired || '';
+    document.getElementById('in-comment').value = sub.comment || '';
+    document.getElementById('in-noconsec').checked = !!sub.noConsec;
+    document.getElementById('in-weekly').checked = !!sub.weeklyOnce;
+    document.getElementById('in-anyday').checked = !!sub.anyDay;
+    document.getElementById('in-lasttrain').checked = !!sub.lastTrain;
+    myAnyWd = new Set(sub.anyWd || []);
+    myTimes = {};
+    const dt = sub.dayTimes || {};
+    Object.keys(dt).forEach(k => { if (dt[k]) myTimes[k] = dt[k]; });
+  } else {
+    document.getElementById('in-desired').value = '';
+    document.getElementById('in-comment').value = '';
+    document.getElementById('in-noconsec').checked = false;
+    document.getElementById('in-weekly').checked = false;
+    document.getElementById('in-anyday').checked = false;
+    document.getElementById('in-lasttrain').checked = false;
+    myAnyWd = new Set();
+    myTimes = {};
+  }
+  toggleAnyWd();
+}
+function renderStaffCal() {
+  const el = document.getElementById('staff-cal');
+  let html = WD.map((w,i) => `<div class="cal-wd ${i===0?'sun':i===6?'sat':''}">${w}</div>`).join('');
+  const first = wdOf(1), n = daysInMonth();
+  for (let i = 0; i < first; i++) html += `<div class="cal-day blank"></div>`;
+  for (let d = 1; d <= n; d++) {
+    const st = mySel[d] === 1 ? 'on' : mySel[d] === 2 ? 'sub' : '';
+    const tm = mySel[d] && myTimes[d] ? `<span class="cd-name">${myTimes[d]==='train'?'⏰終電':'🕒3時'}</span>` : '';
+    html += `<button class="cal-day ${st}" onclick="toggleDay(${d})">${mySel[d]===2?'△':''}${d}${tm}</button>`;
+  }
+  el.innerHTML = html;
+  const note = document.getElementById('staff-sel-note');
+  const nOn = Object.values(mySel).filter(v=>v===1).length;
+  const nSub = Object.values(mySel).filter(v=>v===2).length;
+  note.textContent = myName
+    ? `${myName}さん：○${nOn}日 ＋ △${nSub}日 選択中` + (monthData.subs[myName] ? '（提出済み・修正可）' : '')
+    : '↑ 先に名前を選んでください';
+}
+function allStaff() {
+  return staffList.concat(extraStaff.filter(x => !staffList.includes(x)));
+}
+function isExtra(name) { return extraStaff.includes(name) && !staffList.includes(name); }
+function addExtraName() {
+  const name = document.getElementById('new-name').value.trim();
+  if (!name) { toast('名前を入力してください'); return; }
+  if (/[.#$\[\]\/]/.test(name)) { toast('使えない文字が入っています'); return; }
+  if (allStaff().includes(name)) { toast('その名前はもうあります。チップから選んでください'); return; }
+  DB.ref('shift_data/extraStaff/' + name).set(true)
+    .then(() => { document.getElementById('new-name').value = ''; pickName(name); toast(name + 'さんを追加しました ✓'); })
+    .catch(e => toast('追加エラー: ' + fbErr(e)));
+}
+function delExtraName(name) {
+  if (!confirm(name + 'さんを名簿から削除します。よろしいですか？')) return;
+  DB.ref('shift_data/extraStaff/' + name).set(null)
+    .then(() => toast(name + 'さんを削除しました'));
+}
+function toggleAnyWd() {
+  document.getElementById('anyday-wd').style.display =
+    document.getElementById('in-anyday').checked ? 'block' : 'none';
+  renderAnyWdChips();
+}
+function renderAnyWdChips() {
+  document.getElementById('anywd-chips').innerHTML = WD.map((w,i) =>
+    `<button class="chip ${myAnyWd.has(i)?'selected':''}" style="padding:6px 12px;font-size:14px;" onclick="toggleAnyWdDay(${i})">${w}</button>`).join('');
+}
+function toggleAnyWdDay(i) {
+  myAnyWd.has(i) ? myAnyWd.delete(i) : myAnyWd.add(i);
+  renderAnyWdChips();
+}
+function toggleTimeMode() {
+  timeMode = !timeMode;
+  const b = document.getElementById('btn-timemode');
+  b.style.background = timeMode ? 'var(--accent)' : '';
+  b.style.color = timeMode ? '#fff' : '';
+  document.getElementById('timemode-note').style.display = timeMode ? 'block' : 'none';
+  renderStaffCal();
+}
+function toggleDay(d) {
+  if (!myName) { toast('先に名前を選んでね'); return; }
+  if (timeMode) {
+    if (!mySel[d]) { toast('先に○か△で選んだ日に付けてね'); return; }
+    const cur = myTimes[d];
+    if (cur === 'train') myTimes[d] = 'close3';
+    else if (cur === 'close3') delete myTimes[d];
+    else myTimes[d] = 'train';
+  } else {
+    mySel[d] = ((mySel[d] || 0) + 1) % 3;
+    if (!mySel[d]) { delete mySel[d]; delete myTimes[d]; }
+  }
+  renderStaffCal();
+}
+function submitShift() {
+  if (!myName) { toast('名前を選んでください'); return; }
+  const dOn = Object.keys(mySel).filter(d=>mySel[d]===1).map(Number).sort((a,b)=>a-b);
+  const dSub = Object.keys(mySel).filter(d=>mySel[d]===2).map(Number).sort((a,b)=>a-b);
+  const anyDay = document.getElementById('in-anyday').checked;
+  if (!dOn.length && !dSub.length && !anyDay && !confirm('入れる日が0日です。「今月はお休み」として送信しますか？')) return;
+  const desired = parseInt(document.getElementById('in-desired').value) || 0;
+  const sub = {
+    days: dOn,
+    subDays: dSub,
+    anyDay,
+    anyWd: anyDay ? [...myAnyWd].sort() : [],
+    lastTrain: document.getElementById('in-lasttrain').checked,
+    dayTimes: (() => { const o = {}; Object.keys(myTimes).forEach(k => { if (mySel[k]) o[k] = myTimes[k]; }); return o; })(),
+    rest: !dOn.length && !dSub.length && !anyDay,
+    noConsec: document.getElementById('in-noconsec').checked,
+    weeklyOnce: document.getElementById('in-weekly').checked,
+    desired,
+    comment: document.getElementById('in-comment').value.trim(),
+    updatedAt: new Date().toISOString(),
+  };
+  DB.ref(`shift_data/months/${mKey()}/subs/${myName}`).set(sub)
+    .then(() => toast((dOn.length || dSub.length) ? `${myName}さんの希望を送信しました ✓` : `${myName}さん：今月お休みで送信しました ✓`))
+    .catch(e => toast('送信エラー: ' + fbErr(e)));
+}
+
+// ============================================================
+// SCORES（POS清算データからランク算出）
+// ============================================================
+function evalPeriod() {
+  const now = new Date();
+  const m = now.getMonth() + 1;
+  if (m >= 6 && m <= 11) {
+    const y = now.getFullYear();
+    return { start: new Date(y, 5, 1), end: new Date(y, 11, 1), label: `${y}年6月〜11月` };
+  }
+  const y = m === 12 ? now.getFullYear() : now.getFullYear() - 1;
+  return { start: new Date(y, 11, 1), end: new Date(y + 1, 5, 1), label: `${y}年12月〜${y + 1}年5月` };
+}
+function autoScores() {
+  const period = evalPeriod();
+  const out = {};
+  allStaff().forEach(name => {
+    const mine = settlements.filter(r => Array.isArray(r.names) && r.names.includes(name) && r.D > 0 && r.date);
+    const inPeriod = mine.filter(r => { const t = new Date(r.date); return t >= period.start && t < period.end; });
+    const use = inPeriod.length ? inPeriod : mine;  // 期間内データがなければ全期間で参考表示
+    if (!use.length) { out[name] = null; return; }
+    const avg = Math.round(use.reduce((s,r)=>s+r.D,0) / use.length);
+    // 基準比：その日の売上 ÷ 曜日基準（月〜木・日=3万、金土=5万）の平均
+    const ratio = use.reduce((s,r)=>s + r.D / baselineFor(new Date(r.date)), 0) / use.length;
+    // 日〜木／金土 それぞれの平均・最高
+    const grp = rows => rows.length ? {
+      avg: Math.round(rows.reduce((s,r)=>s+r.D,0) / rows.length),
+      max: Math.max(...rows.map(r=>r.D)),
+      n: rows.length,
+    } : null;
+    const isWe = r => [5,6].includes(new Date(r.date).getDay());
+    // 最低保証（¥10,000）発動 or 店が赤字 の日の割合 → C止まり判定に使う
+    const isLoss = r => typeof r.profit === 'number' && r.profit < 0;
+    const minDays = use.filter(r => r.needsMin).length;
+    const lossDays = use.filter(isLoss).length;
+    const badDays = use.filter(r => r.needsMin || isLoss(r)).length;
+    out[name] = { avg, ratio, count: inPeriod.length, total: mine.length,
+                  minDays, lossDays, minRate: badDays / use.length,
+                  wk: grp(use.filter(r=>!isWe(r))), we: grp(use.filter(isWe)) };
+  });
+  return out;
+}
+function effScore(name, auto) {
+  const ovr = ranks[name] && Number(ranks[name].ovr);
+  if (ovr) return ovr / BASE_AVG;  // 手動は「想定平均売上（円）」→ 基準比に換算
+  return auto[name] ? auto[name].ratio : null;
+}
+function rankLetter(score, minRate) {
+  if (score == null) return 'N';
+  let letter;
+  if (score >= 2.0) letter = 'SSS';
+  else if (score >= 1.5) letter = 'SS';
+  else if (score >= 1.2) letter = 'S';
+  else if (score >= 1.0) letter = 'A';
+  else if (score >= 0.75) letter = 'B';
+  else if (score >= 0.5) letter = 'C';
+  else letter = 'D';
+  // 最低保証（¥10,000）or 赤字 の日が半分以上の子は、良くてもC止まり
+  if ((minRate || 0) >= 0.5 && ['SSS','SS','S','A','B'].includes(letter)) letter = 'C';
+  return letter;
+}
+function weekdayStrength() {
+  const sums = Array(7).fill(0), cnt = Array(7).fill(0);
+  settlements.forEach(r => {
+    if (!r.date || !(r.D > 0)) return;
+    const w = new Date(r.date).getDay();
+    sums[w] += r.D; cnt[w]++;
+  });
+  const overall = cnt.some(c=>c) ? sums.reduce((a,b)=>a+b,0) / cnt.reduce((a,b)=>a+b,0) : 0;
+  return Array(7).fill(0).map((_,w) => cnt[w] ? sums[w]/cnt[w] : overall);
+}
+
+// ============================================================
+// OWNER VIEW
+// ============================================================
+function renderOwner() {
+  if (!document.getElementById('scr-owner').classList.contains('active')) return;
+  document.getElementById('owner-month-label').textContent = mLabel();
+  document.getElementById('owner-month-sub').textContent = mLabel() + ' のシフトを作成';
+
+  // 提出状況
+  const submitted = allStaff().filter(s => monthData.subs[s]);
+  const missing = allStaff().filter(s => !monthData.subs[s]);
+  document.getElementById('sub-count').textContent = `（${submitted.length} / ${allStaff().length} 人）`;
+  document.getElementById('sub-status').innerHTML =
+    submitted.map(s => {
+      const sub = monthData.subs[s];
+      const nd = (sub.days || []).length, ns = (sub.subDays || []).length;
+      const isRest = !nd && !ns && !sub.anyDay;
+      const daysHtml = isRest
+        ? `<span style="color:var(--yellow);font-weight:700;">今月お休み</span>`
+        : `<span style="color:var(--green);font-weight:800;">○${nd}日</span>${ns ? `  <span style="color:var(--yellow);">△${ns}日</span>` : ''}`;
+      // 希望曜日を曜日ドットで表示
+      const wdMap = [0,1,2,3,4,5,6];
+      const selWd = [...new Set((sub.days||[]).map(d=>{ const dt=new Date(target.getFullYear(), target.getMonth(), d); return dt.getDay(); }))];
+      const wdDots = wdMap.map(w => {
+        const active = selWd.includes(w);
+        const col = w===0?'var(--red)':w===6?'var(--blue)':'var(--text2)';
+        return `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${active?col:'var(--bg4)'};color:${active?'#fff':col};font-size:10px;font-weight:700;opacity:${active?1:0.4};">${WD[w]}</span>`;
+      }).join('');
+      const anyTxt = sub.anyDay ? (sub.anyWd && sub.anyWd.length ? `◎${sub.anyWd.map(w=>WD[w]).join('')}のみ` : '◎いつでも') : '';
+      const nT = Object.keys(sub.dayTimes || {}).length;
+      const flags = [
+        anyTxt,
+        sub.lastTrain ? '⏰終電迄' : '',
+        nT ? `⏰時間条件${nT}日` : '',
+        sub.noConsec ? '連勤×' : '',
+        sub.weeklyOnce ? '週1' : '',
+        sub.desired ? `希望${sub.desired}回` : '',
+      ].filter(Boolean).join('  ');
+      const c = staffColor(s);
+      return `<button class="sub-card" onclick="openSubDetail('${esc(s)}')" style="border-color:${c.border};">
+  <div class="sub-card-header">
+    <span style="display:inline-block;width:12px;height:12px;border-radius:6px;background:${c.border};flex-shrink:0;"></span>
+    <span style="color:${c.text};">${s}</span>
+    <span style="margin-left:auto;font-size:12px;color:var(--accent2);font-weight:400;">詳細 ▶</span>
+  </div>
+  <div class="sub-card-body">
+    <div style="margin-bottom:4px;">${daysHtml}${sub.comment?'  💬':''}</div>
+    <div style="display:flex;gap:3px;margin-bottom:${flags?'4px':'0'};">${wdDots}</div>
+    ${flags ? `<div>${flags}</div>` : ''}
+  </div>
+</button>`
+        + (sub.comment ? `<div class="note" style="padding:2px 12px 8px;font-size:12px;">💬 ${sub.comment}</div>` : '');
+    }).join('')
+    + (missing.length ? `<div style="margin-top:8px;font-size:13px;font-weight:700;color:var(--text2);">未提出（${missing.length}人）</div>` : '')
+    + missing.map(s => `<div class="sub-card missing"><span class="status-ng" style="font-size:14px;">✗ ${s}</span><span style="float:right;font-size:12px;color:var(--text2);">未提出</span></div>`).join('');
+
+  // ランク表（基準比の高い順・半年評価）
+  const auto = autoScores();
+  document.getElementById('eval-period').textContent = evalPeriod().label;
+  const ordered = [...allStaff()].sort((x, y) => {
+    const sx = effScore(x, auto), sy = effScore(y, auto);
+    if (sx == null && sy == null) return 0;
+    if (sx == null) return 1;
+    if (sy == null) return -1;
+    return sy - sx;
+  });
+  // 金一封の対象は「今期出勤10回以上」（単発の土日スパイク対策）
+  const top = ordered.find(s => effScore(s, auto) != null && auto[s] && auto[s].count >= 10);
+  document.getElementById('rank-top').innerHTML = (top
+    ? `👑 現在の1位：${top}（基準比${Math.round(effScore(top, auto)*100)}%）<span style="font-size:12px;color:var(--yellow);"> — 期間終了時に金一封！</span>`
+    : `<span style="font-size:13px;color:var(--text2);">👑 金一封の対象者はまだいません</span>`)
+    + `<div class="note" style="font-weight:400;">※金一封の対象は今期出勤10回以上の子だけ</div>`;
+  document.getElementById('rank-body').innerHTML = ordered.map(s => {
+    const a = auto[s], sc = effScore(s, auto);
+    const ovr = ranks[s] && ranks[s].ovr ? ranks[s].ovr : '';
+    const letter = rankLetter(sc, a ? a.minRate : 0);
+    const extraTag = isExtra(s) ? ` <button style="color:var(--red);font-weight:800;padding:0 4px;" onclick="delExtraName('${esc(s)}')">✕</button><br><span style="font-size:10px;color:var(--text2);">追加メンバー</span>` : '';
+    const cell = g => g
+      ? `¥${g.avg.toLocaleString()}<span class="cell-max">最高 ¥${g.max.toLocaleString()}（${g.n}回）</span>`
+      : '<span style="color:var(--text2);">—</span>';
+    return `<tr>
+      <td>${s === top ? '👑' : ''}<b>${s}</b>${extraTag}</td>
+      <td>${a ? cell(a.wk) : '<span class="status-ng">なし</span>'}</td>
+      <td>${a ? cell(a.we) : '<span class="status-ng">なし</span>'}</td>
+      <td><input class="ovr" inputmode="numeric" value="${ovr}" placeholder="—" onchange="setOverride('${esc(s)}', this.value)"></td>
+      <td><span class="rank-badge rk-${letter}">${letter === 'N' ? '？' : letter}</span>${sc!=null?`<span class="rk-sub">${Math.round(sc*100)}%</span>`:''}${a&&a.count<10?`<span class="rk-sub">出勤${a.count}回・対象外</span>`:''}${a&&a.minDays?`<span class="rk-sub" style="color:var(--red);">保証${a.minDays}回</span>`:''}${a&&a.lossDays?`<span class="rk-sub" style="color:var(--red);">赤字${a.lossDays}回</span>`:''}</td>
+    </tr>`;
+  }).join('');
+
+  // 強い曜日表示
+  const ws = weekdayStrength();
+  const order = [...ws.keys()].sort((a,b) => ws[b]-ws[a]).slice(0,2).map(w => WD[w]+'曜');
+  document.getElementById('strong-days').textContent = order.join('・') || '—';
+
+  renderOwnerCal();
+  renderSummary(auto);
+}
+function setOverride(name, val) {
+  const n = parseInt(String(val).replace(/[^0-9]/g,'')) || 0;
+  DB.ref('shift_data/ranks/' + name).set(n ? { ovr: n } : null)
+    .then(() => toast(n ? `${name}：手動スコア ¥${n.toLocaleString()}` : `${name}：自動に戻しました`));
+}
+function renderOwnerCal() {
+  const el = document.getElementById('owner-cal');
+  let html = WD.map((w,i) => `<div class="cal-wd ${i===0?'sun':i===6?'sat':''}">${w}</div>`).join('');
+  const first = wdOf(1), n = daysInMonth();
+  for (let i = 0; i < first; i++) html += `<div class="cal-day blank"></div>`;
+  for (let d = 1; d <= n; d++) {
+    const a = monthData.assign[d];
+    let cls = '', label = '';
+    if (a === '休') { cls = 'closed'; label = '休'; }
+    else if (a) { cls = 'assigned'; const t = timeOf(monthData.subs[a], d); label = a + (t === 'train' ? '⏰' : t === 'close3' ? '🕒' : ''); }
+    else { cls = 'empty-slot'; label = '空き'; }
+    // この日に○希望を出している「担当以外」の人数（＝入れ替え候補）
+    const others = a === '休' ? 0 : allStaff().filter(s => s !== a && monthData.subs[s] && (monthData.subs[s].days||[]).includes(d)).length;
+    const cnt = others ? `<span class="cd-cnt">○${others}</span>` : '';
+    // 個人ごとの色分け
+    let style = '';
+    if (a && a !== '休') {
+      const c = staffColor(a);
+      style = `style="background:${c.bg};border-color:${c.border};"`;
+      html += `<button class="cal-day ${cls}" ${style} onclick="openDay(${d})">${cnt}<span>${d}</span><span class="cd-name" style="color:${c.text};">${label}</span></button>`;
+      continue;
+    }
+    html += `<button class="cal-day ${cls}" onclick="openDay(${d})">${cnt}<span>${d}</span><span class="cd-name">${label}</span></button>`;
+  }
+  el.innerHTML = html;
+  // 凡例（この月に登場する子だけ）
+  const seen = [...new Set(Object.values(monthData.assign).filter(v => v && v !== '休'))];
+  document.getElementById('cal-legend').innerHTML = seen.map(s => {
+    const c = staffColor(s);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:${c.bg};border:1.5px solid ${c.border};color:${c.text};border-radius:12px;padding:2px 10px;font-size:12px;font-weight:700;">${s}</span>`;
+  }).join(' ');
+}
+function renderSummary(auto) {
+  const counts = {};
+  Object.values(monthData.assign).forEach(v => { if (v && v !== '休') counts[v] = (counts[v]||0) + 1; });
+  const empty = [...Array(daysInMonth()).keys()].map(i=>i+1).filter(d => !monthData.assign[d]).length;
+  const rows = allStaff().filter(s => counts[s] || monthData.subs[s]).map(s => {
+    const want = monthData.subs[s] && monthData.subs[s].desired;
+    return `<div class="summary-line"><span>${s}</span><span><b>${counts[s]||0}回</b>${want?` / 希望${want}回`:''}</span></div>`;
+  }).join('');
+  document.getElementById('assign-summary').innerHTML = rows
+    + (empty ? `<div class="summary-line"><span class="status-ng">空きの日</span><span class="status-ng"><b>${empty}日</b></span></div>` : '');
+}
+
+// ============================================================
+// 自動振り分け
+// ============================================================
+function autoAssign(fillOnly) {
+  const subs = monthData.subs;
+  const names = Object.keys(subs);
+  if (!names.length) { toast('まだ誰も提出していません'); return; }
+  if (!fillOnly && Object.values(monthData.assign).some(v => v && v !== '休')) {
+    if (!confirm('今のシフト表を消して、自動で振り分け直します。よろしいですか？（定休日は残ります）')) return;
+  }
+  const auto = autoScores();
+  const known = names.map(s => effScore(s, auto)).filter(v => v != null).sort((a,b)=>a-b);
+  const median = known.length ? known[Math.floor(known.length/2)] : 1;
+  const score = s => { const v = effScore(s, auto); return v != null ? v : median; }; // データなし＝中間扱い
+
+  const ws = weekdayStrength();
+  const n = daysInMonth();
+  const assign = {};
+  // 定休日は維持。「空き日だけ埋める」モードでは決定済みの割当も維持
+  for (let d = 1; d <= n; d++) {
+    if (monthData.assign[d] === '休') assign[d] = '休';
+    else if (fillOnly && monthData.assign[d]) assign[d] = monthData.assign[d];
+  }
+
+  const openDays = [];
+  for (let d = 1; d <= n; d++) if (assign[d] !== '休') openDays.push(d);
+  // 売上が強い日から順に埋める
+  const byStrength = [...openDays].sort((a,b) => ws[wdOf(b)] - ws[wdOf(a)]);
+  const counts = {}; names.forEach(s => counts[s] = 0);
+  if (fillOnly) for (let d = 1; d <= n; d++) { const v = assign[d]; if (v && v !== '休' && counts[v] !== undefined) counts[v]++; }
+  // 個人ルール：連勤なし／週1回まで
+  const weekOf = d => Math.floor((d - 1 + wdOf(1)) / 7);
+  const okRules = (s, d) => {
+    if (subs[s].noConsec && (assign[d-1] === s || assign[d+1] === s)) return false;
+    // 全員共通：連勤は最大2日（3連勤になる置き方は禁止）
+    if ((assign[d-1] === s && assign[d-2] === s) || (assign[d+1] === s && assign[d+2] === s) || (assign[d-1] === s && assign[d+1] === s)) return false;
+    if (subs[s].weeklyOnce) {
+      for (let x = 1; x <= n; x++) if (assign[x] === s && weekOf(x) === weekOf(d)) return false;
+    }
+    return true;
+  };
+  const avail = d => names.filter(s => (subs[s].days||[]).includes(d) && !assign[d] && okRules(s, d));
+  const desired = s => subs[s].desired || Infinity;
+
+  // フェーズ1：全員に最低1回。上位の子は強い日、下位の子は弱い日に配置
+  const staffByScore = [...names].sort((a,b) => score(b) - score(a));
+  staffByScore.forEach((s, i) => {
+    if (counts[s] > 0) return; // すでに入っている子は保証済み
+    const mine = byStrength.filter(d => !assign[d] && (subs[s].days||[]).includes(d) && okRules(s, d));
+    if (!mine.length) return;
+    const topHalf = i < staffByScore.length / 2;
+    let d;
+    if (topHalf) d = mine[0]; // 上位は強い日
+    else {
+      // 下位の保証枠は金土を避けて弱い日に（金土はオーナーがフォローしやすいため空けておく）
+      const nonWe = mine.filter(x => ![5,6].includes(wdOf(x)));
+      d = nonWe.length ? nonWe[nonWe.length - 1] : mine[mine.length - 1];
+    }
+    assign[d] = s; counts[s]++;
+  });
+  // フェーズ2：残りを希望回数の範囲でスコア順に
+  const isWeDay = d => [5,6].includes(wdOf(d));
+  for (const d of byStrength) {
+    if (assign[d]) continue;
+    let cands = avail(d).filter(s => counts[s] < desired(s));
+    // 希望回数を超える無理な埋め方は平日のみ。金土は空けておく（オーナーがフォローしやすい）
+    if (!cands.length && !isWeDay(d)) cands = avail(d);
+    if (!cands.length) continue;         // 埋めない日＝空き
+    cands.sort((a,b) => (score(b) - score(a)) || (counts[a] - counts[b]));
+    assign[d] = cands[0]; counts[cands[0]]++;
+  }
+  // フェーズ3：それでも空いた日は「△空いてたら入る」→「◎いつでも入れる」の順で埋める
+  const subAvail = d => names.filter(s => (subs[s].subDays||[]).includes(d) && !assign[d] && okRules(s, d));
+  const anyAvail = d => names.filter(s => subs[s].anyDay && !assign[d]
+    && (!(subs[s].anyWd||[]).length || subs[s].anyWd.includes(wdOf(d)))
+    && !(subs[s].days||[]).includes(d) && !(subs[s].subDays||[]).includes(d) && okRules(s, d));
+  for (const d of byStrength) {
+    if (assign[d]) continue;
+    let cands = subAvail(d).filter(s => counts[s] < desired(s));
+    if (!cands.length) cands = anyAvail(d).filter(s => counts[s] < desired(s));
+    if (!cands.length && !isWeDay(d)) cands = subAvail(d);   // 超過は平日のみ
+    if (!cands.length && !isWeDay(d)) cands = anyAvail(d);
+    if (!cands.length) continue;
+    cands.sort((a,b) => (score(b) - score(a)) || (counts[a] - counts[b]));
+    assign[d] = cands[0]; counts[cands[0]]++;
+  }
+  DB.ref(`shift_data/months/${mKey()}/assign`).set(assign)
+    .then(() => toast(fillOnly ? '空き日を埋めました ⚡（決定分はそのまま）' : '自動振り分けが完了しました ⚡'))
+    .catch(e => toast('保存エラー: ' + fbErr(e)));
+}
+function clearAssign() {
+  if (!confirm('シフト表を全部消します。よろしいですか？')) return;
+  DB.ref(`shift_data/months/${mKey()}/assign`).set(null);
+}
+
+// ============================================================
+// 手動変更モーダル
+// ============================================================
+function openSubDetail(name) {
+  const sub = monthData.subs[name];
+  if (!sub) return;
+  const c = staffColor(name);
+  document.getElementById('sub-modal-title').innerHTML =
+    `<span style="display:inline-block;width:12px;height:12px;border-radius:6px;background:${c.border};margin-right:6px;"></span>${name}さんの希望（${mLabel()}）`;
+  const n = daysInMonth(), first = wdOf(1);
+  let cal = WD.map((w,i)=>`<div class="cal-wd ${i===0?'sun':i===6?'sat':''}">${w}</div>`).join('');
+  for (let i = 0; i < first; i++) cal += '<div class="cal-day blank"></div>';
+  const dt = sub.dayTimes || {};
+  for (let d = 1; d <= n; d++) {
+    const on = (sub.days||[]).includes(d), sb = (sub.subDays||[]).includes(d);
+    const st = on ? 'on' : sb ? 'sub' : '';
+    const asg = monthData.assign[d] === name;
+    const tm = dt[d] ? `<span class="cd-name">${dt[d]==='train'?'⏰':'🕒'}</span>` : '';
+    cal += `<div class="cal-day ${st}" ${asg?'style="outline:3px solid var(--green);"':''}>${sb?'△':''}${d}${tm}</div>`;
+  }
+  const auto = autoScores(), a = auto[name];
+  const cell = g => g ? `平均 ¥${g.avg.toLocaleString()}／最高 ¥${g.max.toLocaleString()}（${g.n}回）` : 'データなし';
+  const myCount = Object.values(monthData.assign).filter(v => v === name).length;
+  const rules = [sub.noConsec?'連勤なし':'', sub.weeklyOnce?'週1まで':'', sub.lastTrain?'終電まで':'',
+    sub.anyDay?((sub.anyWd||[]).length?'◎'+sub.anyWd.map(w=>WD[w]).join(''):'◎いつでも'):''].filter(Boolean).join('・');
+  document.getElementById('sub-modal-body').innerHTML = `
+    <div class="cal">${cal}</div>
+    <div class="note" style="margin:10px 0;">紫＝○入れる／黄＝△空いてたら／緑枠＝シフト決定（現在${myCount}回）</div>
+    <div class="summary-line"><span>希望回数</span><span><b>${sub.desired ? sub.desired + '回' : '指定なし'}</b></span></div>
+    <div class="summary-line"><span>条件</span><span>${rules || 'なし'}</span></div>
+    <div class="summary-line"><span>売上（日〜木）</span><span>${a ? cell(a.wk) : 'なし'}</span></div>
+    <div class="summary-line"><span>売上（金土）</span><span>${a ? cell(a.we) : 'なし'}</span></div>
+    <div class="summary-line"><span>基準比</span><span><b>${a ? Math.round(a.ratio*100) + '%' : '—'}</b>${a&&a.minDays?`（保証${a.minDays}回）`:''}</span></div>
+    ${sub.comment ? `<div class="note" style="margin-top:6px;">💬 ${sub.comment}</div>` : ''}`;
+  document.getElementById('sub-modal').classList.add('open');
+}
+function openDay(d) {
+  editingDay = d;
+  const w = wdOf(d);
+  document.getElementById('day-modal-title').textContent = `${target.getMonth()+1}/${d}（${WD[w]}）の担当`;
+  const auto = autoScores();
+  const cur = monthData.assign[d];
+  const counts = {};
+  Object.values(monthData.assign).forEach(v => { if (v && v !== '休') counts[v] = (counts[v]||0)+1; });
+  const availNames = allStaff().filter(s => monthData.subs[s] && (monthData.subs[s].days||[]).includes(d));
+  const anyMatch = s => monthData.subs[s] && monthData.subs[s].anyDay && (!(monthData.subs[s].anyWd||[]).length || monthData.subs[s].anyWd.includes(wdOf(d)));
+  const subNames = allStaff().filter(s => !availNames.includes(s) && monthData.subs[s] && ((monthData.subs[s].subDays||[]).includes(d) || anyMatch(s)));
+  const others = allStaff().filter(s => !availNames.includes(s) && !subNames.includes(s));
+  const row = (s, mark) => {
+    const a = auto[s], sc = effScore(s, auto);
+    const t = timeOf(monthData.subs[s], d);
+    const lt = t === 'train' ? ' / ⏰終電' : t === 'close3' ? ' / 🕒3時まで' : '';
+    return `<button class="pick-row ${cur===s?'cur':''}" style="width:100%;text-align:left;" onclick="setDay('${esc(s)}')">
+      <span><b>${s}</b>${cur===s?' ✓':''}</span>
+      <span class="meta">${mark}${lt} / ${counts[s]||0}回 / ${sc!=null?'基準比'+Math.round(sc*100)+'%':'実績なし'}</span>
+    </button>`;
+  };
+  const byScore = arr => arr.sort((a,b)=>(effScore(b,auto)||0)-(effScore(a,auto)||0));
+  document.getElementById('day-modal-body').innerHTML =
+    (availNames.length ? byScore(availNames).map(s=>row(s,'○希望')).join('') : '<div class="note">この日に○希望の子はいません</div>')
+    + (subNames.length ? `<div class="note" style="margin-top:10px;margin-bottom:4px;">△ 空いてたら／◎ いつでも入れる子：</div>` + byScore(subNames).map(s=>row(s,(monthData.subs[s].subDays||[]).includes(d)?'△空いてたら':((monthData.subs[s].anyWd||[]).length?'◎'+monthData.subs[s].anyWd.map(w=>WD[w]).join(''):'◎いつでも'))).join('') : '')
+    + `<div class="note" style="margin-top:10px;margin-bottom:4px;">希望を出していない子：</div>`
+    + others.map(s=>row(s,'✕希望外')).join('');
+  document.getElementById('day-modal').classList.add('open');
+}
+function setDay(val) {
+  if (editingDay == null) return;
+  DB.ref(`shift_data/months/${mKey()}/assign/${editingDay}`).set(val);
+  closeModal('day-modal');
+}
+
+// ============================================================
+// LINEコピー
+// ============================================================
+function pageUrl() {
+  return location.origin.startsWith('http') ? location.origin + location.pathname : '（シフトページのURL）';
+}
+function copyRecruit() {
+  const m = target.getMonth() + 1;
+  const dl = `${target.getMonth()===0?12:target.getMonth()}/${DEADLINE_DAY}`;
+  copyText(
+`【${m}月シフト募集】🍸
+${m}月に入れる日の入力をお願いします！
+下のページを開いて、自分の名前 → 入れる日をタップ → 送信、だけです✨
+
+⏰ 締切：${dl}
+${pageUrl()}`);
+}
+function copyRemind() {
+  const missing = allStaff().filter(s => !monthData.subs[s]);
+  if (!missing.length) { toast('全員提出済みです ✓'); return; }
+  const m = target.getMonth() + 1;
+  copyText(
+`【リマインド】${m}月シフトまだの子〜！📢
+${missing.join('、')}
+締切間近です。入力お願いします🙏
+${pageUrl()}`);
+}
+function copyOpenDays() {
+  const m = target.getMonth() + 1, n = daysInMonth();
+  const open = [];
+  for (let d = 1; d <= n; d++) if (!monthData.assign[d]) open.push(`${m}/${d}(${WD[wdOf(d)]})`);
+  if (!open.length) { toast('空きの日はありません ✓'); return; }
+  copyText(
+`【${m}月シフト・空き日のお知らせ】🍸
+以下の日がまだ空いています。入れる子は連絡ください！
+${open.join('\n')}`);
+}
+function copyShiftTable() {
+  const m = target.getMonth() + 1, n = daysInMonth();
+  let lines = [`【Bar Aoi ${m}月シフト】🍸`];
+  for (let d = 1; d <= n; d++) {
+    const a = monthData.assign[d];
+    const w = WD[wdOf(d)];
+    const t = a && a !== '休' ? timeOf(monthData.subs[a], d) : null;
+    const lt = t ? `（${TIME_LABEL[t]}）` : '';
+    lines.push(`${m}/${d}(${w}) ${a === '休' ? '定休日' : (a ? a + lt : '未定')}`);
+  }
+  lines.push('', '変更・相談はオーナーまで！');
+  copyText(lines.join('\n'));
+}
+
+// ============================================================
+function renderAll() {
+  renderStaff();
+  renderOwner();
+}
+init();
+renderAll();
+</script>
+</body>
+</html>
