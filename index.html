@@ -3866,8 +3866,12 @@ function hoAddCustomer() {
   document.getElementById('ho-customers').appendChild(div);
 }
 
+let _hoSubmitting = false;
 function submitHandover() {
+  if (_hoSubmitting) return;
   if (!hoSelectedStaff) { toast('担当スタッフを選んでください'); return; }
+  _hoSubmitting = true;
+  setTimeout(() => { _hoSubmitting = false; }, 3000);
   // お客様エントリ収集
   const custDivs = document.querySelectorAll('#ho-customers .ho-cust-entry');
   const customers = [];
@@ -3935,10 +3939,11 @@ function renderShareScreen() {
         </div>`
       ).join('');
       const custLen = (h.customers || []).length;
-      return `<div style="background:var(--bg2);border-radius:12px;border:1px solid var(--border);padding:12px 14px;margin-bottom:8px;">
-        <div style="font-weight:800;font-size:14px;margin-bottom:${custLen||h.freeNote?'8px':'0'};">${h.staffName}
+      return `<div style="background:var(--bg2);border-radius:12px;border:1px solid var(--border);padding:12px 14px;margin-bottom:8px;position:relative;">
+        <div style="font-weight:800;font-size:14px;margin-bottom:${custLen||h.freeNote?'8px':'0'};padding-right:32px;">${h.staffName}
           <span style="font-size:11px;color:var(--text2);font-weight:400;margin-left:6px;">${new Date(h.createdAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</span>
         </div>
+        <button onclick="deleteHandover('${h.id}')" style="position:absolute;top:10px;right:10px;color:var(--red,#ef4444);font-size:16px;padding:2px 6px;background:none;border:none;cursor:pointer;font-weight:800;" title="削除">✕</button>
         ${custHtml}
         ${h.freeNote ? `<div style="font-size:13px;color:var(--text2);margin-top:${custLen?'8px':'0'};${custLen?'padding-top:6px;border-top:1px solid var(--bg3);':''}">📌 ${h.freeNote}</div>` : ''}
       </div>`;
@@ -3949,6 +3954,15 @@ function renderShareScreen() {
       ${entries}
     </div>`;
   }).join('');
+}
+
+function deleteHandover(id) {
+  showConfirm('🗑 共有事項を削除', 'この引き継ぎメモを削除しますか？', '削除する', () => {
+    DB.handovers = (DB.handovers || []).filter(h => h.id !== id);
+    saveDB();
+    renderShareScreen();
+    toast('削除しました');
+  });
 }
 
 function renderHandoverLog() {
@@ -3964,7 +3978,7 @@ function renderHandoverLog() {
   }
   el.innerHTML = logs.map(h => {
     const dateLabel = new Date(h.date).toLocaleDateString('ja-JP', { month:'numeric', day:'numeric', weekday:'short' });
-    const custHtml = h.customers.map(c =>
+    const custHtml = (h.customers || []).map(c =>
       `<div style="font-size:13px;padding:4px 0;border-bottom:1px solid var(--bg3);">
         <span class="ho-cat-badge">${c.cat}</span><b>${c.name}</b>${c.note ? `<span style="color:var(--text2);margin-left:6px;">${c.note}</span>` : ''}
       </div>`
