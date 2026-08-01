@@ -3922,7 +3922,7 @@ function submitHandover() {
 function renderShareScreen() {
   const el = document.getElementById('share-list');
   if (!el) return;
-  const cutoff = fmtDate(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
+  const cutoff = fmtDate(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000));
   const logs = (DB.handovers || [])
     .filter(h => h.date >= cutoff)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -3983,7 +3983,7 @@ function deleteHandover(id) {
 function renderHandoverLog() {
   const el = document.getElementById('handover-log');
   if (!el) return;
-  const cutoff = fmtDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+  const cutoff = fmtDate(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000));
   const logs = (DB.handovers || [])
     .filter(h => h.date >= cutoff)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
