@@ -852,6 +852,7 @@ input[type=range].eval-slider { width:100%; accent-color:var(--accent); height:6
     <div class="settings-tab"        id="stab-btn-eval"    onclick="settingsTab('eval')">評価</div>
     <div class="settings-tab"        id="stab-btn-history" onclick="settingsTab('history')">履歴</div>
     <div class="settings-tab"        id="stab-btn-stats"   onclick="settingsTab('stats')">統計</div>
+    <div class="settings-tab"        id="stab-btn-datamgmt" onclick="settingsTab('datamgmt')" style="display:none;">🗑データ</div>
   </div>
 
   <!-- ===== TAB: 基本設定 ===== -->
@@ -1019,6 +1020,47 @@ input[type=range].eval-slider { width:100%; accent-color:var(--accent); height:6
       </div>
       <div class="eval-staff-tabs" id="stats-staff-tabs"></div>
       <div id="stats-content" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: データ管理（オーナー限定）===== -->
+  <div class="settings-panel" id="stab-datamgmt">
+    <div class="settings-sec" style="padding-bottom:80px;">
+      <div class="settings-sec-title">🗑 データ管理（テスト・ミスデータ削除）</div>
+      <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--text2);line-height:1.7;">
+        ⚠️ <b>削除したデータは復元できません</b><br>売上（伝票）・清算データを選んで削除できます。
+      </div>
+
+      <!-- 対象タイプ切り替え -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button id="dmgmt-tab-sales" onclick="dmgmtSwitch('sales')"
+          style="flex:1;padding:9px;border-radius:10px;background:var(--accent);color:#fff;font-size:13px;font-weight:700;">売上伝票</button>
+        <button id="dmgmt-tab-settlements" onclick="dmgmtSwitch('settlements')"
+          style="flex:1;padding:9px;border-radius:10px;background:var(--bg2);color:var(--text2);font-size:13px;font-weight:600;border:1.5px solid var(--border);">清算履歴</button>
+      </div>
+
+      <!-- 日付フィルタ -->
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+        <input type="date" id="dmgmt-from" style="flex:1;min-width:110px;background:var(--bg3);border:1.5px solid var(--border);border-radius:9px;padding:7px 8px;color:var(--text);font-size:13px;">
+        <span style="color:var(--text2);font-size:12px;">〜</span>
+        <input type="date" id="dmgmt-to" style="flex:1;min-width:110px;background:var(--bg3);border:1.5px solid var(--border);border-radius:9px;padding:7px 8px;color:var(--text);font-size:13px;">
+        <button onclick="dmgmtLoad()" style="padding:8px 14px;border-radius:9px;background:var(--accent);color:#fff;font-size:13px;font-weight:700;">絞り込む</button>
+      </div>
+
+      <!-- 全選択・削除ボタン -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="dmgmt-check-all" onchange="dmgmtToggleAll(this.checked)" style="width:18px;height:18px;">
+          <span id="dmgmt-sel-count" style="color:var(--text2);">0件選択中</span>
+        </label>
+        <button onclick="dmgmtDeleteSelected()" id="dmgmt-del-btn"
+          style="padding:8px 16px;border-radius:10px;background:#ef4444;color:#fff;font-size:13px;font-weight:700;opacity:0.4;" disabled>
+          選択削除
+        </button>
+      </div>
+
+      <!-- リスト -->
+      <div id="dmgmt-list" style="font-size:13px;"></div>
     </div>
   </div>
 </div>
@@ -3982,6 +4024,136 @@ function deleteHandover(id) {
   });
 }
 
+// ============================================================
+// DATA MANAGEMENT (オーナー限定 テスト・ミスデータ削除)
+// ============================================================
+let dmgmtType = 'sales'; // 'sales' or 'settlements'
+
+function dmgmtInit() {
+  // デフォルト日付：先月1日〜今日
+  const today = fmtDate(new Date());
+  const fromEl = document.getElementById('dmgmt-from');
+  const toEl   = document.getElementById('dmgmt-to');
+  if (fromEl && !fromEl.value) fromEl.value = '2026-06-01';
+  if (toEl   && !toEl.value)   toEl.value   = today;
+  dmgmtSwitch(dmgmtType);
+}
+
+function dmgmtSwitch(type) {
+  dmgmtType = type;
+  const isSales = type === 'sales';
+  const sBtn = document.getElementById('dmgmt-tab-sales');
+  const eBtn = document.getElementById('dmgmt-tab-settlements');
+  if (sBtn) { sBtn.style.background = isSales ? 'var(--accent)' : 'var(--bg2)'; sBtn.style.color = isSales ? '#fff' : 'var(--text2)'; sBtn.style.border = isSales ? 'none' : '1.5px solid var(--border)'; }
+  if (eBtn) { eBtn.style.background = !isSales ? 'var(--accent)' : 'var(--bg2)'; eBtn.style.color = !isSales ? '#fff' : 'var(--text2)'; eBtn.style.border = !isSales ? 'none' : '1.5px solid var(--border)'; }
+  dmgmtLoad();
+}
+
+function dmgmtLoad() {
+  const from = document.getElementById('dmgmt-from')?.value || '';
+  const to   = document.getElementById('dmgmt-to')?.value   || '';
+  const list = document.getElementById('dmgmt-list');
+  if (!list) return;
+
+  let items = [];
+  if (dmgmtType === 'sales') {
+    items = (DB.sales || []).filter(s => {
+      const d = s.date || s.businessDate || '';
+      return (!from || d >= from) && (!to || d <= to);
+    }).map((s, i) => ({
+      _idx: (DB.sales || []).indexOf(s),
+      date: s.date || s.businessDate || '',
+      staff: s.staffName || '—',
+      label: s.customerName || s.guestName || '—',
+      amount: (s.total || 0).toLocaleString() + '円',
+      sub: s.items ? s.items.length + '品' : ''
+    }));
+  } else {
+    items = (DB.settlements || []).filter(s => {
+      const d = s.date || '';
+      return (!from || d >= from) && (!to || d <= to);
+    }).map((s, i) => ({
+      _idx: (DB.settlements || []).indexOf(s),
+      date: s.date || '',
+      staff: s.staffName || s.staff || '—',
+      label: '売上 ' + (s.totalSales || 0).toLocaleString() + '円',
+      amount: '現金 ' + (s.cashSales || 0).toLocaleString() + '円',
+      sub: ''
+    }));
+  }
+
+  // 日付降順
+  items.sort((a, b) => b.date.localeCompare(a.date));
+
+  if (!items.length) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2);">この期間にデータはありません</div>';
+    dmgmtUpdateSelCount();
+    return;
+  }
+
+  // 日付グループ
+  const byDate = {};
+  items.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
+
+  list.innerHTML = Object.keys(byDate).sort().reverse().map(d => {
+    const label = (() => {
+      const dt = new Date(d + 'T12:00:00');
+      return dt.toLocaleDateString('ja-JP', { month:'numeric', day:'numeric', weekday:'short' });
+    })();
+    const rows = byDate[d].map(it => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bg3);">
+        <input type="checkbox" class="dmgmt-cb" data-idx="${it._idx}" onchange="dmgmtUpdateSelCount()"
+          style="width:20px;height:20px;flex-shrink:0;cursor:pointer;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;">${it.staff}
+            <span style="font-size:12px;color:var(--text2);font-weight:400;margin-left:4px;">${it.label}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text2);">${it.amount}${it.sub ? '　' + it.sub : ''}</div>
+        </div>
+      </div>`).join('');
+    return `<div style="margin-bottom:4px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);padding:8px 0 2px;border-bottom:2px solid var(--border);">${label}（${byDate[d].length}件）</div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  // 全選択チェックをリセット
+  const allCb = document.getElementById('dmgmt-check-all');
+  if (allCb) allCb.checked = false;
+  dmgmtUpdateSelCount();
+}
+
+function dmgmtToggleAll(checked) {
+  document.querySelectorAll('.dmgmt-cb').forEach(cb => cb.checked = checked);
+  dmgmtUpdateSelCount();
+}
+
+function dmgmtUpdateSelCount() {
+  const cbs = [...document.querySelectorAll('.dmgmt-cb:checked')];
+  const n = cbs.length;
+  const countEl = document.getElementById('dmgmt-sel-count');
+  const delBtn  = document.getElementById('dmgmt-del-btn');
+  if (countEl) countEl.textContent = n + '件選択中';
+  if (delBtn) { delBtn.disabled = n === 0; delBtn.style.opacity = n > 0 ? '1' : '0.4'; }
+}
+
+function dmgmtDeleteSelected() {
+  const cbs = [...document.querySelectorAll('.dmgmt-cb:checked')];
+  if (!cbs.length) return;
+  const idxs = cbs.map(cb => parseInt(cb.dataset.idx)).sort((a,b) => b - a); // 降順で削除
+
+  showConfirm('🗑 データ削除', `選択した${idxs.length}件を削除します。\n元に戻せません。本当に削除しますか？`, '削除する', () => {
+    if (dmgmtType === 'sales') {
+      idxs.forEach(i => DB.sales.splice(i, 1));
+    } else {
+      idxs.forEach(i => DB.settlements.splice(i, 1));
+    }
+    saveDB();
+    toast(`✅ ${idxs.length}件削除しました`);
+    dmgmtLoad();
+  });
+}
+
 function renderHandoverLog() {
   const el = document.getElementById('handover-log');
   if (!el) return;
@@ -4213,7 +4385,11 @@ function saveEval() {
 }
 
 function settingsTab(tab) {
-  ['config','eval','history','stats'].forEach(t => {
+  // データ管理タブはオーナー時のみ表示
+  const dmBtn = document.getElementById('stab-btn-datamgmt');
+  if (dmBtn) dmBtn.style.display = ownerUnlocked ? '' : 'none';
+
+  ['config','eval','history','stats','datamgmt'].forEach(t => {
     const panel = document.getElementById('stab-' + t);
     const btn   = document.getElementById('stab-btn-' + t);
     if (panel) panel.classList.toggle('active', t === tab);
@@ -4226,6 +4402,7 @@ function settingsTab(tab) {
     if (sfd) { sfd.value = statsFromDate; }
     renderStaffStats();
   }
+  if (tab === 'datamgmt') { dmgmtInit(); }
   LS.set('settings_tab', tab);
 }
 
