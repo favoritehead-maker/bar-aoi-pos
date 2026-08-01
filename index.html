@@ -3948,24 +3948,24 @@ function renderShareScreen() {
 
     const entries = byDate[d].map(h => {
       const custHtml = (h.customers || []).map(c =>
-        `<div style="font-size:13px;padding:5px 0;border-bottom:1px solid var(--bg3);display:flex;gap:8px;align-items:baseline;">
+        `<div style="font-size:15px;padding:5px 0;border-bottom:1px solid var(--bg3);display:flex;gap:8px;align-items:baseline;">
           <span class="ho-cat-badge">${c.cat}</span>
-          <span><b>${c.name}</b>${c.note ? `<span style="color:var(--text2);font-size:12px;">　${c.note}</span>` : ''}</span>
+          <span><b>${c.name}</b>${c.note ? `<span style="color:var(--text2);font-size:14px;">　${c.note}</span>` : ''}</span>
         </div>`
       ).join('');
       const custLen = (h.customers || []).length;
       return `<div style="background:var(--bg2);border-radius:12px;border:1px solid var(--border);padding:12px 14px;margin-bottom:8px;position:relative;">
-        <div style="font-weight:800;font-size:14px;margin-bottom:${custLen||h.freeNote?'8px':'0'};padding-right:32px;">${h.staffName}
-          <span style="font-size:11px;color:var(--text2);font-weight:400;margin-left:6px;">${new Date(h.createdAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</span>
+        <div style="font-weight:800;font-size:17px;margin-bottom:${custLen||h.freeNote?'8px':'0'};padding-right:32px;">${h.staffName}
+          <span style="font-size:13px;color:var(--text2);font-weight:400;margin-left:6px;">${new Date(h.createdAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</span>
         </div>
         <button onclick="deleteHandover('${h.id}')" style="position:absolute;top:10px;right:10px;color:var(--red,#ef4444);font-size:16px;padding:2px 6px;background:none;border:none;cursor:pointer;font-weight:800;" title="削除">✕</button>
         ${custHtml}
-        ${h.freeNote ? `<div style="font-size:13px;color:var(--text2);margin-top:${custLen?'8px':'0'};${custLen?'padding-top:6px;border-top:1px solid var(--bg3);':''}">📌 ${h.freeNote}</div>` : ''}
+        ${h.freeNote ? `<div style="font-size:15px;color:var(--text2);margin-top:${custLen?'8px':'0'};${custLen?'padding-top:6px;border-top:1px solid var(--bg3);':''}">📌 ${h.freeNote}</div>` : ''}
       </div>`;
     }).join('');
 
     return `<div style="margin-bottom:4px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);padding:8px 2px 4px;">${dateLabel}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text2);padding:8px 2px 4px;">${dateLabel}</div>
       ${entries}
     </div>`;
   }).join('');
