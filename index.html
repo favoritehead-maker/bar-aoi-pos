@@ -3417,7 +3417,7 @@ function lrUpdate() {
   // 当日の引き継ぎメモを末尾に追加
   const dayHandovers = (DB.handovers || []).filter(h => h.date === date);
   const hoSection = dayHandovers.map(h => {
-    const custLines = h.customers.map(c =>
+    const custLines = (h.customers || []).map(c =>
       `  ・${c.name}【${c.cat.replace(/^.+? /,'')}】${c.note ? ' ' + c.note : ''}`
     ).join('\n');
     const freeNote = h.freeNote ? `  📌 ${h.freeNote}` : '';
@@ -3432,15 +3432,30 @@ function lrUpdate() {
 
 async function lrCopy() {
   const text = document.getElementById('lr-preview').textContent;
+  // textareaを使ったiOS対応コピー
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  // iOS Safari向け
+  ta.setSelectionRange(0, 99999);
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {}
+  document.body.removeChild(ta);
+  if (ok) {
+    toast('📋 コピーしました！LINEに貼り付けてください');
+    return;
+  }
+  // execCommandが使えない場合はClipboard API
   try {
     await navigator.clipboard.writeText(text);
-    toast('コピーしました！LINEに貼り付けてください');
+    toast('📋 コピーしました！LINEに貼り付けてください');
   } catch {
-    // Fallback: select the text manually
-    const el = document.getElementById('lr-preview');
-    const range = document.createRange(); range.selectNodeContents(el);
-    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-    toast('テキストを選択しました。コピーしてください');
+    toast('⚠️ 上のテキストを長押しして手動でコピーしてください');
   }
 }
 
