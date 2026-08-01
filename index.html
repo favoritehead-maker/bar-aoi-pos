@@ -1433,6 +1433,8 @@ input[type=range].eval-slider { width:100%; accent-color:var(--accent); height:6
 // GLOBAL ERROR HANDLER — エラーを画面に表示（デバッグ用）
 // ============================================================
 window.onerror = function(msg, src, line, col, err) {
+  // L0 = cross-origin script error (Firebase/Chart.js CDN) — not actionable, skip
+  if (line === 0 && msg === 'Script error.') return true;
   const panel = document.getElementById('debug-panel');
   if (panel) {
     panel.style.display = 'block';
