@@ -2635,7 +2635,7 @@ function renderGuestsScreen(query) {
       html += `<div class="guest-sec-label">過去1ヶ月</div>`;
       Object.keys(byDate).sort().reverse().forEach(d => {
         const label = new Date(d + 'T12:00:00').toLocaleDateString('ja-JP', {month:'numeric', day:'numeric', weekday:'short'});
-        const cnt = byDate[d].length;
+        const cnt = byDate[d].reduce((sum, s) => sum + (s.chargeExempt ? 1 + (s.chargeCount || 0) : (s.chargeCount || 1)), 0);
         const total = byDate[d].reduce((sum, s) => sum + (s.total || 0), 0);
         html += `<div class="date-group">
           <button class="date-group-hdr" onclick="toggleDateGroup(this)">
@@ -2663,7 +2663,7 @@ function renderGuestsScreen(query) {
         html += `<div class="guest-sec-label">1ヶ月以上前</div>`;
         Object.keys(byDate).sort().reverse().forEach(d => {
           const label = d === '0000-00-00' ? '日付不明' : new Date(d + 'T12:00:00').toLocaleDateString('ja-JP', {month:'numeric', day:'numeric', weekday:'short'});
-          const cnt = byDate[d].length;
+          const cnt = byDate[d].reduce((sum, s) => sum + (s.chargeExempt ? 1 + (s.chargeCount || 0) : (s.chargeCount || 1)), 0);
           const total = byDate[d].reduce((sum, s) => sum + (s.total || 0), 0);
           html += `<div class="date-group">
             <button class="date-group-hdr" onclick="toggleDateGroup(this)">
@@ -2784,7 +2784,12 @@ function calcSett() {
   // L: 場代
   const L = Math.round((D - E - F) * 0.1);
   // 来店数
-  const visitors = DB.settings.chargePrice > 0 ? Math.round(E / DB.settings.chargePrice) : 0;
+  // 来店数：chargeCountベースで統一
+  const _settDateVal = document.getElementById('sett-date')?.value || settDate();
+  const _settSales = DB.sales.filter(s => saleDate(s) === _settDateVal);
+  const visitors = _settSales.length
+    ? _settSales.reduce((sum, s) => sum + (s.chargeExempt ? 1 + (s.chargeCount || 0) : (s.chargeCount || 1)), 0)
+    : (DB.settings.chargePrice > 0 ? Math.round(E / DB.settings.chargePrice) : 0);
   // K natural
   const K_natural = (D - E - F - G - J) / 2 - L;
   // Min guarantee
@@ -2983,7 +2988,7 @@ function executeMidshiftSettlement(D, E, F, G, J, L, K, needsMinInt) {
     A: session ? session.A : 0,
     B: 0, C: 0, H: 0, H_pp:0, H_dp:0, H_cd:0,
     I: 0, I2: 0, tsukeCollectedCashless: 0,
-    visitors: DB.settings.chargePrice > 0 ? Math.round(E / DB.settings.chargePrice) : 0,
+    visitors: (() => { const sv = DB.sales.filter(s => saleDate(s) === date); return sv.length ? sv.reduce((sum,s) => sum + (s.chargeExempt ? 1+(s.chargeCount||0) : (s.chargeCount||1)), 0) : (DB.settings.chargePrice > 0 ? Math.round(E / DB.settings.chargePrice) : 0); })(),
     finalReg: 0, profit: 0,
     takeB: 0, takeKplus: K, takeKplusAll: K,
     savedAt: new Date().toISOString(),
@@ -3105,7 +3110,10 @@ function _doSaveSettlement(date, names) {
   const H = num('s-H'), I = num('s-I'), J = num('s-J');
   const I2 = num('s-I2'); // つけ回収入金
   const L = Math.round((D - E - F) * 0.1);
-  const visitors = DB.settings.chargePrice > 0 ? Math.round(E / DB.settings.chargePrice) : 0;
+  const _sv = DB.sales.filter(s => saleDate(s) === date);
+  const visitors = _sv.length
+    ? _sv.reduce((sum, s) => sum + (s.chargeExempt ? 1 + (s.chargeCount || 0) : (s.chargeCount || 1)), 0)
+    : (DB.settings.chargePrice > 0 ? Math.round(E / DB.settings.chargePrice) : 0);
   const K_natural = (D - E - F - G - J) / 2 - L;
   const needsMin = K_natural < 10000;
   const K_display = needsMin ? 10000 : K_natural;
