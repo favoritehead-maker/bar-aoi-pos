@@ -3217,7 +3217,7 @@ function renderSettHistory() {
           ${(r.tsukeCollectedCashless > 0) ? histRow('つけ回収（キャッシュレス）', r.tsukeCollectedCashless) : ''}
           ${histRow('個人料理', r.J)}
           ${histRow('場代', r.L)}
-          ${histRow('来店数', r.visitors + ' 名')}
+          ${(() => { const sv = DB.sales.filter(s => saleDate(s) === r.date); const cnt = sv.length ? sv.reduce((sum,s) => sum + (s.chargeExempt ? 1+(s.chargeCount||0) : (s.chargeCount||1)), 0) : (r.visitors || 0); return histRow('来店数', cnt + ' 名'); })()}
           <div class="hist-row"><span class="hist-label">取り分（ノート）</span><span class="hist-value" style="color:var(--green)">¥${r.K_display.toLocaleString()}${r.needsMin?' ⚠️最低保証':''}</span></div>
           ${histRow('仕入れ取り分', r.takeB)}
           ${histRow('取り分（仕入れ含）', r.takeKplus)}
