@@ -4725,6 +4725,8 @@ function renderEvalSummary() {
   const getGrade = total => gradeList.find(g => total >= g.min);
   const rows = staffList.map(s => {
     const auto     = evalAutoScore(s, ym);
+    const worked   = auto.daysWorked > 0;
+    if (!worked) return { name: s, total: null, grade: null, hasSaved: false, worked: false };
     const saved    = DB.staffEvals?.[ym]?.[s] || {};
     const shift    = saved.shift    ?? 70;
     const repeat   = saved.repeat   ?? 70;
@@ -4733,27 +4735,31 @@ function renderEvalSummary() {
     const scores   = [auto.sales, auto.unitPrice, shift, repeat, handover, sns];
     const weights  = [0.25, 0.20, 0.20, 0.15, 0.15, 0.05];
     const total    = Math.round(scores.reduce((sum, v, i) => sum + v * weights[i], 0));
-    return { name: s, total, grade: getGrade(total), hasSaved: !!saved.savedAt };
-  }).sort((a, b) => b.total - a.total);
+    return { name: s, total, grade: getGrade(total), hasSaved: !!saved.savedAt, worked: true };
+  }).sort((a, b) => (b.total ?? -1) - (a.total ?? -1));
   if (!rows.length) { el.innerHTML = ''; return; }
-  const avg      = Math.round(rows.reduce((s, r) => s + r.total, 0) / rows.length);
-  const avgGrade = getGrade(avg);
+  const workedRows = rows.filter(r => r.worked);
+  const avg      = workedRows.length ? Math.round(workedRows.reduce((s, r) => s + r.total, 0) / workedRows.length) : null;
+  const avgGrade = avg !== null ? getGrade(avg) : null;
+  const rankMap  = {}; workedRows.forEach((r, i) => { rankMap[r.name] = i + 1; });
   el.innerHTML = `<div class="eval-card" style="margin-bottom:16px;">
     <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px;">📋 ${ym} 全スタッフまとめ</div>
     ${rows.map((r, i) => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;${i < rows.length - 1 ? 'border-bottom:1px solid var(--bg3);' : ''}">
-      <span style="font-size:11px;color:var(--text2);width:16px;text-align:right;">${i + 1}</span>
-      <span style="flex:1;font-size:14px;font-weight:600;">${r.name}</span>
-      <span style="font-size:13px;color:var(--text2);margin-right:4px;">${r.total}点</span>
+      <span style="font-size:11px;color:var(--text2);width:16px;text-align:right;">${rankMap[r.name] ?? '—'}</span>
+      <span style="flex:1;font-size:14px;font-weight:600;${!r.worked ? 'color:var(--text2);' : ''}">${r.name}</span>
+      ${r.worked
+        ? `<span style="font-size:13px;color:var(--text2);margin-right:4px;">${r.total}点</span>
       <span style="font-size:13px;font-weight:700;color:${r.grade.color};min-width:30px;text-align:center;">${r.grade.label}</span>
-      ${!r.hasSaved ? '<span style="font-size:10px;color:var(--text2);background:var(--bg3);border-radius:4px;padding:2px 5px;">未保存</span>' : ''}
+      ${!r.hasSaved ? '<span style="font-size:10px;color:var(--text2);background:var(--bg3);border-radius:4px;padding:2px 5px;">未保存</span>' : ''}`
+        : '<span style="font-size:12px;color:var(--text2);">出勤なし</span>'}
     </div>`).join('')}
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0 2px;margin-top:6px;border-top:2px solid var(--border);">
+    ${avg !== null ? `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0 2px;margin-top:6px;border-top:2px solid var(--border);">
       <span style="font-size:13px;font-weight:700;">全体平均</span>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:16px;font-weight:800;color:var(--accent);">${avg}点</span>
         <span style="font-size:13px;font-weight:700;color:${avgGrade.color};">${avgGrade.label}</span>
       </div>
-    </div>
+    </div>` : ''}
   </div>`;
 }
 
