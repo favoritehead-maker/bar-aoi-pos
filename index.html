@@ -959,7 +959,7 @@ input[type=range].eval-slider { width:100%; accent-color:var(--accent); height:6
             <input type="range" class="eval-slider" id="sl-handover" min="0" max="100" value="70" oninput="evalSliderChange()">
           </div>
           <div class="eval-slider-row">
-            <div class="eval-slider-label"><span>📸 SNS集客（ボーナス）</span><b id="lbl-sns">0</b></div>
+            <div class="eval-slider-label"><span>🏆 店への貢献度</span><b id="lbl-sns">0</b></div>
             <input type="range" class="eval-slider" id="sl-sns" min="0" max="100" value="0" oninput="evalSliderChange()">
           </div>
           <div class="eval-slider-row" style="margin-bottom:0">
@@ -4348,7 +4348,7 @@ function updateEvalChart(auto) {
   evalChart = new Chart(ctx, {
     type: 'radar',
     data: {
-      labels: ['売上', '客単価', 'シフト\n信頼性', 'リピーター', '引き継ぎ', 'SNS'],
+      labels: ['売上', '客単価', 'シフト\n信頼性', 'リピーター', '引き継ぎ', '貢献度'],
       datasets: [{
         label: evalStaff || '',
         data: scores,
