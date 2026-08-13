@@ -1552,8 +1552,14 @@ function enterTestMode() {
   if (firebase.apps && firebase.apps.length) {
     FBREF = firebase.database().ref('bar_data_test');
   }
+  // スタッフ・設定は本番から引き継ぐ（顧客・売上・清算だけリセット）
+  const _keepStaff    = [...DB.staff];
+  const _keepSettings = Object.assign({}, DB.settings);
   DB = DB_DEFAULT();
+  DB.staff    = _keepStaff;
+  DB.settings = _keepSettings;
   localStorage.removeItem('bar_session');
+  _setupFbListener();
   renderTestModeBanner();
   renderHome();
   renderSessionBanner();
