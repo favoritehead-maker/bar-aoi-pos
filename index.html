@@ -1747,7 +1747,7 @@ function renderSessionBanner() {
   banner.innerHTML = `<div class="session-banner">
     <div class="sb-info">
       <div class="sb-date">📅 ${session.date} 営業中</div>
-      <div class="sb-names">👤 ${session.names.join(' / ')}</div>
+      <div class="sb-names">👤 ${session.names.join(' / ')}${session.swappedFrom ? ' <span style="font-size:10px;color:var(--accent2);background:rgba(99,102,241,.15);padding:2px 6px;border-radius:8px;margin-left:4px;">🔄 ' + session.swappedFrom + 'より交代</span>' : ''}</div>
       <div class="sb-reg">レジ: ¥${session.A.toLocaleString()} ／ 仕入: ¥${session.B.toLocaleString()}</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
@@ -3024,6 +3024,10 @@ function executeMidshiftSettlement(D, E, F, G, J, L, K, needsMinInt) {
 
   // 全オープンテーブルをBさんに引き継ぎ
   DB.customers.forEach(c => { c.staffName = midshiftStaffB; });
+
+  // セッションのスタッフ名をBに更新
+  const _sess = LS.get('bar_session');
+  if (_sess) { _sess.names = [midshiftStaffB]; _sess.swappedFrom = midshiftStaffA; LS.set('bar_session', _sess); }
 
   saveDB();
   closeMidshiftModal();
