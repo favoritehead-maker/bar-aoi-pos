@@ -1622,6 +1622,7 @@ function _setupFbListener() {
     DB.sales       = toArr(data.sales)       || [];
     DB.settlements = toArr(data.settlements) || [];
     if (!activeCustomerId) renderHome();
+    if (document.getElementById('midshift-modal')?.classList.contains('open')) renderMidshiftModal();
   });
 }
 
@@ -3032,6 +3033,7 @@ function executeMidshiftSettlement(D, E, F, G, J, L, K, needsMinInt) {
   saveDB();
   closeMidshiftModal();
   renderHome();
+  renderSessionBanner();
   toast(`🔄 スタッフ交代完了 ${midshiftStaffA}→${midshiftStaffB} ギャラ¥${K.toLocaleString()}`);
   setTimeout(() => {
     showConfirm(
