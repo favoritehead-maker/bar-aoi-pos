@@ -2875,11 +2875,20 @@ function confirmSwapDialog() {
 function openMidshiftModal() {
   const session = LS.get('bar_session');
   if (!session) { toast('先に営業開始してください'); return; }
-  const staffList = DB.staff.map(s => typeof s === 'object' ? s.name : s).filter(Boolean);
-  midshiftStaffA = session.names[0] || staffList[0] || null;
-  midshiftStaffB = staffList.find(s => s !== midshiftStaffA) || null;
-  document.getElementById('midshift-modal').classList.add('open');
-  renderMidshiftModal();
+  const _doOpen = () => {
+    const staffList = DB.staff.map(s => typeof s === 'object' ? s.name : s).filter(Boolean);
+    midshiftStaffA = session.names[0] || staffList[0] || null;
+    midshiftStaffB = staffList.find(s => s !== midshiftStaffA) || null;
+    document.getElementById('midshift-modal').classList.add('open');
+    renderMidshiftModal();
+  };
+  if (FBREF) {
+    FBREF.once('value').then(snap => {
+      const d = snap.val();
+      if (d && d.staff) DB.staff = toArr(d.staff) || DB.staff;
+      _doOpen();
+    }).catch(_doOpen);
+  } else { _doOpen(); }
 }
 function closeMidshiftModal() {
   document.getElementById('midshift-modal').classList.remove('open');
