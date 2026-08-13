@@ -744,6 +744,10 @@ input[type=range].eval-slider { width:100%; accent-color:var(--accent); height:6
       </div>
     </div>
 
+    <div id="swap-gara-panel" class="result-block" style="display:none;background:rgba(99,102,241,.08);border:1.5px solid var(--accent2);border-radius:14px;padding:14px 16px;">
+      <div class="result-block-title" style="color:var(--accent2)">🔄 スタッフ交代ギャラ内訳</div>
+      <div id="swap-gara-content"></div>
+    </div>
     <button class="save-sett-btn" onclick="saveSettlement()">💾 この清算を保存</button>
     <button onclick="openHandover()" style="display:block;width:100%;padding:13px;border-radius:12px;background:var(--bg3);color:var(--accent2);border:1.5px solid var(--border);font-size:15px;font-weight:700;margin-top:10px;">📝 引き継ぎメモを書く</button>
     <button class="line-report-btn" onclick="openLineReport()" style="margin-top:10px">💬 グループLINEに報告</button>
@@ -1082,7 +1086,7 @@ input[type=range].eval-slider { width:100%; accent-color:var(--accent); height:6
 <div id="midshift-modal">
   <div class="midshift-sheet">
     <div class="midshift-hdr">
-      <span>🚃 終電精算</span>
+      <span>🔄 スタッフ交代</span>
       <button onclick="closeMidshiftModal()" style="font-size:22px;color:var(--text2);padding:0 4px;">✕</button>
     </div>
     <div id="midshift-content" style="padding:0 16px 16px;"></div>
@@ -1748,7 +1752,7 @@ function renderSessionBanner() {
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
       <button class="sb-edit-btn" onclick="openStartSession()">編集</button>
-      <button class="sb-midshift-btn" onclick="openMidshiftModal()">🚃 終電</button>
+      ${DB.settlements.some(s=>s.type==='midshift'&&s.date===session.date)?'<span style="font-size:12px;color:var(--accent2);font-weight:700;padding:6px 10px;">🔄 交代済</span>':'<button class="sb-midshift-btn" onclick="confirmSwapDialog()">🔄 交代</button>'}
     </div>
   </div>`;
 }
@@ -2836,6 +2840,21 @@ function calcSett() {
   // Color
   const rFinal = document.getElementById('r-final');
   if (rFinal) rFinal.className = 'result-value highlight' + (finalReg < 0 ? ' warning' : '');
+
+  // スタッフ交代ギャラ表示
+  const _midshiftRec = DB.settlements.find(s => s.type === 'midshift' && s.date === _settDateVal);
+  const swapPanel = document.getElementById('swap-gara-panel');
+  const swapContent = document.getElementById('swap-gara-content');
+  if (_midshiftRec && swapPanel) {
+    const D_B = D - _midshiftRec.D, E_B = E - _midshiftRec.E, F_B = F - _midshiftRec.F;
+    const G_B = G - (_midshiftRec.G||0), J_B = J - (_midshiftRec.J||0);
+    const L_B = Math.round((D_B - E_B - F_B) * 0.1);
+    const K_B = Math.max(0, Math.round((D_B - E_B - F_B - G_B - J_B) / 2 - L_B));
+    swapPanel.style.display = '';
+    if (swapContent) swapContent.innerHTML =
+      '<div class="result-row"><div class="result-label" style="color:var(--text2)">🚪 ' + _midshiftRec.names[0] + '（交代前）</div><div class="result-value" style="color:var(--green)">¥' + (_midshiftRec.K_display||0).toLocaleString() + '</div></div>' +
+      '<div class="result-row"><div class="result-label" style="color:var(--text2)">🤝 ' + _midshiftRec.staffB + '（交代後）</div><div class="result-value" style="color:var(--accent2)">¥' + K_B.toLocaleString() + '</div></div>';
+  } else if (swapPanel) { swapPanel.style.display = 'none'; }
 }
 
 // ============================================================
@@ -2844,6 +2863,14 @@ function calcSett() {
 let midshiftStaffA = null;
 let midshiftStaffB = null;
 
+function confirmSwapDialog() {
+  const session = LS.get('bar_session');
+  if (!session) { toast('先に営業開始してください'); return; }
+  if (DB.settlements.some(s => s.type === 'midshift' && s.date === session.date)) {
+    toast('本日はすでにスタッフ交代済みです'); return;
+  }
+  showConfirm('🔄 スタッフ交代', '本当に交代しますか？\n交代後は取り消しできません。', '交代する', () => openMidshiftModal());
+}
 function openMidshiftModal() {
   const session = LS.get('bar_session');
   if (!session) { toast('先に営業開始してください'); return; }
@@ -2899,8 +2926,8 @@ function renderMidshiftModal() {
   const J = confFood;
   const L = Math.round((D - E - F) * 0.1);
   const K_nat = (D - E - F - G - J) / 2 - L;
-  const needsMin = K_nat < 10000;
-  const K = needsMin ? 10000 : Math.round(K_nat);
+  const needsMin = false;
+  const K = Math.max(0, Math.round(K_nat));
 
   const bList = staffList.filter(s => s !== midshiftStaffA);
 
@@ -2952,7 +2979,7 @@ function renderMidshiftModal() {
 
     <button class="midshift-exec-btn"
       onclick="executeMidshiftSettlement(${D},${E},${F},${G},${J},${L},${K},${needsMin?1:0})">
-      🚃 終電精算を実行（${midshiftStaffA||'—'} → ${midshiftStaffB||'—'}）
+      🔄 スタッフ交代を実行（${midshiftStaffA||'—'} → ${midshiftStaffB||'—'}）
     </button>
     <p style="font-size:11px;color:var(--text2);text-align:center;margin:6px 0 0;">
       実行すると全テーブルが${midshiftStaffB||'Bさん'}に引き継がれます
@@ -3001,10 +3028,10 @@ function executeMidshiftSettlement(D, E, F, G, J, L, K, needsMinInt) {
   saveDB();
   closeMidshiftModal();
   renderHome();
-  toast(`🚃 終電精算完了 ${midshiftStaffA}→${midshiftStaffB} ギャラ¥${K.toLocaleString()}`);
+  toast(`🔄 スタッフ交代完了 ${midshiftStaffA}→${midshiftStaffB} ギャラ¥${K.toLocaleString()}`);
   setTimeout(() => {
     showConfirm(
-      '🚃 終電精算完了',
+      '🔄 スタッフ交代完了',
       `${midshiftStaffA} のギャラ：¥${K.toLocaleString()}${needsMin?' （最低保証）':''}
 
 全テーブル（${snapDetails.length}卓）を ${midshiftStaffB} に引き継ぎました。`,
