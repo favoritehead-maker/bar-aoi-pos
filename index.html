@@ -3224,7 +3224,15 @@ function _doSaveSettlement(date, names) {
 
 function renderSettHistory() {
   const el = document.getElementById('sett-history');
-  const sorted = [...DB.settlements].sort((a,b) => b.date.localeCompare(a.date));
+  const sorted = [...DB.settlements].sort((a,b) => {
+    const dc = b.date.localeCompare(a.date);
+    if (dc !== 0) return dc;
+    if (a.type === 'midshift' && b.type !== 'midshift') return 1;
+    if (b.type === 'midshift' && a.type !== 'midshift') return -1;
+    return 0;
+  });
+  const _midshiftByDate = {};
+  DB.settlements.filter(s => s.type === 'midshift').forEach(s => { _midshiftByDate[s.date] = s; });
   if (!sorted.length) { el.innerHTML = '<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px 0">保存済みの清算はありません</div>'; return; }
 
   // 月別グループ化
@@ -3256,6 +3264,7 @@ function renderSettHistory() {
           ${r.type==='midshift' ? `
             <div class="hist-row"><span class="hist-label">確定売上</span><span class="hist-value">¥${(r.confirmedSales||0).toLocaleString()}</span></div>
             <div class="hist-row"><span class="hist-label">スナップショット</span><span class="hist-value" style="color:var(--orange)">¥${(r.snapshotSales||0).toLocaleString()}</span></div>
+            <div class="hist-row"><span class="hist-label">🚪 ${r.names[0]}のギャラ</span><span class="hist-value" style="color:var(--green)">¥${(r.K_display||0).toLocaleString()}</span></div>
           ` : histRow('スタートレジ金', r.A)}
           ${histRow('仕入れ', r.B)}
           ${histRow('総売上', r.D)}
@@ -3275,6 +3284,14 @@ function renderSettHistory() {
           ${histRow('取り分（仕入れ含）', r.takeKplus)}
           ${histRow('取り分（全込）', r.takeKplusAll)}
           <div class="hist-row"><span class="hist-label" style="font-weight:700">最終レジ金</span><span class="hist-value" style="color:var(--accent2);font-size:15px">¥${r.finalReg.toLocaleString()}</span></div>
+          ${r.type !== 'midshift' && _midshiftByDate[r.date] ? (function(){
+            var _ms = _midshiftByDate[r.date];
+            var D_B = r.D - _ms.D, E_B = (r.E||0) - (_ms.E||0), F_B = (r.F||0) - (_ms.F||0);
+            var G_B = (r.G||0) - (_ms.G||0), J_B = (r.J||0) - (_ms.J||0);
+            var L_B = Math.round((D_B - E_B - F_B) * 0.1);
+            var K_B = Math.max(0, Math.round((D_B - E_B - F_B - G_B - J_B) / 2 - L_B));
+            return '<div style="background:rgba(99,102,241,.08);border:1.5px solid var(--accent2);border-radius:10px;padding:10px 12px;margin:4px 0 8px;"><div style="font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:5px;">🔄 スタッフ交代ギャラ</div><div class="hist-row"><span class="hist-label">🚪 ' + _ms.names[0] + '（交代前）</span><span class="hist-value" style="color:var(--green)">¥' + (_ms.K_display||0).toLocaleString() + '</span></div><div class="hist-row"><span class="hist-label">🤝 ' + _ms.staffB + '（交代後）</span><span class="hist-value" style="color:var(--accent2)">¥' + K_B.toLocaleString() + '</span></div></div>';
+          })() : ''}
           <div class="hist-btn-row">
             <button class="hist-edit-btn" onclick="loadSettlementForEdit('${r.id}')">📝 修正する</button>
             <button class="hist-del-btn" onclick="deleteSettlement('${r.id}')">🗑 削除</button>
