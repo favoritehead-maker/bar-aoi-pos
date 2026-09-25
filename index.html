@@ -3105,7 +3105,7 @@ function autoFillFromPOS(silent) {
       bd.style.display = '';
     } else { bd.style.display = 'none'; }
   }
-  if (J > 0) setVal('s-J', J);
+  setVal('s-J', J); // 個人料理：前日の値が引き継がれないよう常に上書き
   // つけ（未払い）自動入力
   const tsukeAmt = sales.filter(x => x.paymentMethod === 'tsuke').reduce((s, x) => s + x.total, 0);
   setVal('s-I', tsukeAmt);
